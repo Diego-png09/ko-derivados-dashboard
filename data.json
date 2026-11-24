@@ -321,6 +321,16 @@
   "f": "Excel: hoja Costo en riesgo · Cálculo: EUR base × F₀ (liquidaciones de CME del 13-nov-2026)",
   "u": "https://www.cmegroup.com/markets/fx/g10/euro-fx.settlements.html#tradeDate=11/13/2026"
  },
+ "presupuesto_min": {
+  "v": 1444561707.373333,
+  "f": "Excel: hoja Costo en riesgo (Presupuesto mín) · Cálculo: EUR mínimo × F₀",
+  "u": "https://www.cmegroup.com/markets/fx/g10/euro-fx.settlements.html#tradeDate=11/13/2026"
+ },
+ "presupuesto_max": {
+  "v": 1904134601.7367098,
+  "f": "Excel: hoja Costo en riesgo (Presupuesto máx) · Cálculo: EUR máximo × F₀",
+  "u": "https://www.cmegroup.com/markets/fx/g10/euro-fx.settlements.html#tradeDate=11/13/2026"
+ },
  "costo_riesgo": {
   "v": 116782172.19183254,
   "f": "Excel: hoja Costo en riesgo · data/processed/paso4_costo_en_riesgo.csv · Cálculo: Σ EUR base × (F₀ − P5), σ = 6.89 %",

@@ -108,6 +108,8 @@ DATA["cadena"] = [{"concepto": r.concepto, "valor": str(r.valor), "tipo": r.tipo
                    "u": next((v for k, v in LINK_CAD.items() if r.concepto.startswith(k)), None)} for r in cad.itertuples()]
 fcr = "Excel: hoja Costo en riesgo · data/processed/paso4_costo_en_riesgo.csv"
 DATA["presupuesto"] = c(float(a3.usd_presupuesto_base.sum()), "Excel: hoja Costo en riesgo · Cálculo: EUR base × F₀ (liquidaciones de CME del 13-nov-2026)", U["cme_6e_set"])
+DATA["presupuesto_min"] = c(float(a3.usd_presupuesto_minimo.sum()), "Excel: hoja Costo en riesgo (Presupuesto mín) · Cálculo: EUR mínimo × F₀", U["cme_6e_set"])
+DATA["presupuesto_max"] = c(float(a3.usd_presupuesto_maximo.sum()), "Excel: hoja Costo en riesgo (Presupuesto máx) · Cálculo: EUR máximo × F₀", U["cme_6e_set"])
 DATA["costo_riesgo"] = c(float(c4.costo_riesgo_base.sum()), fcr + " · Cálculo: Σ EUR base × (F₀ − P5), σ = 6.89 %", U["cme_6e_set"])
 DATA["materialidad"] = c(r4["materialidad"], fcr + " · Cálculo: costo en riesgo ÷ utilidad de operación H1 2026 (USD 9,031 M, 10-Q Q2-2026, p. 2)", U["q2_is"])
 DATA["util_h1"] = c(util, "10-Q Q2-2026, Item 1, Condensed Consolidated Statements of Income (seis meses), p. 2; XBRL OperatingIncomeLoss", U["q2_is"])

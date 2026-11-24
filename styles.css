@@ -208,3 +208,8 @@ body.imprimir .tarjeta.texto p { font-size: 13px; }
 body.imprimir .solo-pantalla { display: none; }
 body.imprimir #p3 .graf { height: 215px; }
 body.imprimir #p3 .mensaje { margin-bottom: 6px; }
+@media (max-width: 760px) {
+  .nav { gap: 6px; padding: 8px 6px; }
+  .nav button { width: 38px; }
+  #anexo { max-width: 92px; margin-left: 2px; }
+}

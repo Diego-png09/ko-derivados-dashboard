@@ -74,7 +74,7 @@
         ${kpi("a", "Mínimo (verificable)", c(E.sem_minimo, "meur"), `CCEP eurozona ${c(E.ccep_eur, "meur")} + CCHBC Italia ${c(E.cchbc_min, "meur")}, ÷ 2`)}
         ${kpi("", "Base", c(E.sem_base, "meur"), `CCEP + CCHBC con mezcla euro base (${c(E.cchbc_base, "meur")}), ÷ 2`)}
         ${kpi("", "Máximo (supuesto)", c(E.sem_maximo, "meur"), "base × (1 + mayor crecimiento de EMEA)")}
-        ${kpi("r", "Costo en riesgo (P5, 95 %)", c(D.costo_riesgo, "musd"), `presupuesto al F₀: ${c(D.presupuesto, "musd")}`)}
+        ${kpi("r", "Costo en riesgo (P5, 95 %)", c(D.costo_riesgo, "musd"), `presupuesto al F₀: ${c(D.presupuesto, "musd")} (mín. ${c(D.presupuesto_min, "musd")} · máx. ${c(D.presupuesto_max, "musd")})`)}
         ${kpi("r", "Materialidad", c(D.materialidad, "pct", 2), "de la utilidad de operación H1 2026")}
       </div>
       <p class="nota">Fuentes primarias: CCEP 20-F FY2025 (Nota 20, p. 186; Nota 4, p. 151; p. 49), CCHBC Integrated Annual Report 2025 (Nota 27 a), p. 322; Nota 6 a), pp. 275–276), KO 10-Q Q2-2026 (p. 2). Cada cifra enlaza (↗) a su ubicación exacta; la cadena completa está en Anexo · Exposición.</p>`,

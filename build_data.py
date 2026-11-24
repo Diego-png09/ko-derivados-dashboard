@@ -1,311 +1,264 @@
-"""Paso 9 · Exporta a dashboard/data.json (y data.js) las cifras que usa el dashboard.
+"""Paso 10c · Exporta a dashboard/data.json (y data.js) las cifras que usa el dashboard.
 
-Solo LEE outputs/*.md y entregables/modelo/Modelo_KO_derivados.xlsx; no recalcula nada.
-Cada cifra va como {"v": valor, "f": "archivo · sección/hoja"}.
-data.js contiene lo mismo como `window.DATA = ...` para que el sitio funcione también abriendo
-index.html directo (file://), sin servidor.
+Solo LEE data/processed/ (las mismas tablas que el Excel entregables/modelo/Modelo_KO_derivados.xlsx) y
+outputs/paso5c_boletas.md; no recalcula nada.
+Cada cifra va como {"v": valor, "f": "archivo · sección u hoja", "u": "URL a la ubicación exacta de la fuente primaria"}.
+Las URL salen de data/raw/_registro.csv; las anclas de la SEC y las páginas de PDF se verificaron el 24-nov-2026.
+data.js contiene lo mismo como `window.DATA = ...` para que el sitio funcione también abriendo index.html directo.
 Uso: .venv/bin/python dashboard/build_data.py
 """
 from pathlib import Path
-import json, re
-import openpyxl
+import csv, json
+import pandas as pd
+import yaml
 
 R = Path(__file__).resolve().parents[1]
-O = R / "outputs"
-XL = R / "entregables/modelo/Modelo_KO_derivados.xlsx"
-XLN = "entregables/modelo/Modelo_KO_derivados.xlsx"
+P = R / "data/processed"
 D = Path(__file__).resolve().parent
+CF = yaml.safe_load((R / "config/supuestos.yaml").read_text())
+XL = "Modelo_KO_derivados.xlsx"
+
+# ---------------------------------------------------------------- URL (todas en data/raw/_registro.csv)
+REG = {r["archivo"]: r["url"] for r in csv.DictReader(open(R / "data/raw/_registro.csv", encoding="utf-8"))}
+K10 = REG["fuentes/sec/KO_10-K_FY2025.htm"]
+Q1 = REG["fuentes/sec/KO_10-Q_Q1-2026.htm"]; Q2 = REG["fuentes/sec/KO_10-Q_Q2-2026.htm"]
+CCEP = REG["fuentes/ccep/CCEP_20-F_FY2025.htm"]
+CCHBC = REG["fuentes/cchbc/CCHBC_Integrated_Annual_Report_2025.pdf"]
+U = {
+    "k10_n20": K10 + "#ia2cb76fa2c6c4a82a91d7a0d2310cb54_199",      # Nota 20 Operating Segments (p. 116–117)
+    "k10_7a": K10 + "#ia2cb76fa2c6c4a82a91d7a0d2310cb54_115",       # Item 7A (p. 58)
+    "k10_i1": K10 + "#ia2cb76fa2c6c4a82a91d7a0d2310cb54_16",        # Item 1 Business
+    "k10_n11": K10 + "#ia2cb76fa2c6c4a82a91d7a0d2310cb54_172",      # Nota 11 Debt (p. 89)
+    "q1_n16": Q1 + "#if2b5e765f97247b9b82dd5d0587d11bc_82",         # 10-Q Q1-2026, Nota 16 (p. 25)
+    "q2_is": Q2 + "#i0cd3a5dd043745aaac884be47e5302ac_19",          # 10-Q Q2-2026, estado de resultados (p. 2)
+    "ccep_n20": CCEP + "#ib923d59d4bf049709de71613e017ff2c_6882",   # 20-F Nota 20 (p. 186)
+    "ccep_n4": CCEP + "#ifea416b694cc442b836327e6b523c2c3_3218",    # 20-F Nota 4, ingresos por geografía (p. 151)
+    "ccep_geo": CCEP + "#id4157a397b674a27b1817736f4b5379a_11164",  # 20-F Business and financial review (p. 48; tabla en p. 49)
+    "cchbc_n27": CCHBC + "#page=324", "cchbc_n6a": CCHBC + "#page=277", "cchbc_paises": CCHBC + "#page=278",
+    "cme_6e_set": REG["data/raw/cme_6E_settlements_2026-11-13.csv"].split(" ; ")[0],
+    "cme_6e_opt_h": REG["data/raw/cme/6E_opc_H7_2026-11-13.txt"].split(" (")[0],
+    "cme_6e_margin": "https://www.cmegroup.com/markets/fx/g10/euro-fx.margins.html",
+    "cme_6e_vol": "https://www.cmegroup.com/markets/fx/g10/euro-fx/volume#tradeDate=20261113",
+    "cme_cl_set": REG["data/raw/cme/CL_settlements_2026-11-13.txt"],
+    "cme_cl_opt": REG["data/raw/cme/CL_opc_LOH27_2026-11-13.txt"].split(" (")[0],
+    "cme_hrp": "https://www.cmegroup.com/solutions/risk-management/performance-bonds-margins.html",
+    "nymex_310": "https://www.cmegroup.com/rulebook/NYMEX/3/310.pdf#page=2",
+    "fred": REG["data/raw/tasas/fred_DEXUSEU_2023-11-01_2026-11-13.csv"],
+    "yf_6e": REG["data/raw/yf_6E_F_diario_2021.csv"], "yf_cl": REG["data/raw/yf_CL_F_diario_2021.csv"],
+    "ecb_fsr": "https://www.ecb.europa.eu/pub/pdf/fsr/ecb.fsr202211~6383d08c21.en.pdf",
+    "eia": "https://www.eia.gov/todayinenergy/detail.php?id=55079",
+    "ice": "https://www.ice.com/report/12",
+}
+for k, v in U.items():
+    assert v.startswith("https://"), (k, v)
 
 
-# ---------------------------------------------------------------- lectura
-def num(s):
-    """'1,636.1' → 1636.1 · '77.83%' → 0.7783 · 'USD 1,900' → 1900 · '−0.089%' → -0.00089."""
-    if s is None:
-        return None
-    t = str(s).replace("**", "").replace("USD", "").replace("−", "-").replace(",", "").strip()
-    t = re.sub(r"\s*\(.*\)$", "", t).strip()
-    t = re.sub(r"\s*M$", "", t)
-    pct = t.endswith("%")
-    t = t.rstrip("%").replace(" ", "").lstrip("+")
-    try:
-        x = float(t)
-    except ValueError:
-        return None
-    return x / 100 if pct else x
+def c(v, f, u=None):
+    return {"v": v, "f": f, "u": u}
 
 
-def limpio(s):
-    return re.sub(r"\*\*|`", "", s).strip()
+def leer(n, **kw):
+    return pd.read_csv(P / n, **kw)
 
 
-def md_tabla(archivo, seccion, cabecera=None):
-    """Primera tabla después del encabezado que contiene `seccion` (y cuya cabecera
-    contiene `cabecera`, si se da). Devuelve (lista de dicts, fuente)."""
-    lineas = (O / archivo).read_text().splitlines()
-    ini = next(i for i, l in enumerate(lineas) if l.startswith("#") and seccion in l)
-    titulo = limpio(lineas[ini].lstrip("# "))
-    i = ini + 1
-    while True:
-        while not lineas[i].startswith("|"):
-            i += 1
-        bloque = []
-        while i < len(lineas) and lineas[i].startswith("|"):
-            bloque.append(lineas[i]); i += 1
-        cab = [limpio(c) for c in bloque[0].strip().strip("|").split("|")]
-        if cabecera is None or any(cabecera in c for c in cab):
-            break
-    filas = [[limpio(c) for c in l.strip().strip("|").split("|")] for l in bloque[2:]]
-    return [dict(zip(cab, f)) for f in filas], f"outputs/{archivo} · {titulo}"
+f2 = f"Excel: hoja Exposición · data/processed/paso2_cadena.csv (Paso 2 v3)"
+p2 = json.loads((P / "paso2_parametros.json").read_text())
+cal = leer("paso2_calendario_eur.csv")
+a3 = leer("paso3_asignacion_presupuesto.csv")
+c4 = leer("paso4_costo_en_riesgo.csv"); r4 = json.loads((P / "paso4_resumen.json").read_text())
+f5 = leer("paso5a_futuros.csv"); p5 = leer("paso5a_puts.csv"); sr = leer("paso5a_stack_roll.csv"); ia = leer("paso5a_ia.csv")
+j6 = json.loads((P / "paso6_resumen.json").read_text()); bt = leer("paso6_backtest.csv"); so = leer("paso6_sobrecobertura.csv")
+epu = leer("paso6_escenarios_precio_unico.csv"); eps = leer("paso6_escenarios_precio_unico_resumen.csv")
+t5 = leer("paso6_tablero_P5.csv", index_col=0); tm = leer("paso6_tablero_media.csv", index_col=0)
+e5b = leer("paso5b_estrategias.csv").set_index("estrategia"); j5b = json.loads((P / "paso5b_parametros.json").read_text())
+r4reg = leer("paso4_regresion.csv")
+diag = json.loads((P / "paso1_diagnostico_yf.json").read_text())
+util = CF["paso4"]["utilidad_operacion_h1_2026_musd"] * 1e6
 
-
-def md_dato(archivo, cifra):
-    """Valor (texto) de la tabla 'Datos para interpretar' cuya cifra empieza con `cifra`."""
-    filas, f = md_tabla(archivo, "Datos para interpretar")
-    fila = next(x for x in filas if x["Cifra"].startswith(cifra))
-    return fila["Valor"], f
-
-
-def xl_hoja(nombre, fila_cab=4):
-    ws = wb[nombre]
-    filas = list(ws.iter_rows(min_row=fila_cab, values_only=True))
-    cab = [c for c in filas[0] if c is not None]
-    out = []
-    for r in filas[1:]:
-        if r[0] is None:
-            break
-        out.append(dict(zip(cab, r)))
-    return out, f"{XLN} · hoja {nombre}"
-
-
-def c(v, f):
-    return {"v": v, "f": f}
-
-
-wb = openpyxl.load_workbook(XL, data_only=True)
 DATA = {"meta": {
     "titulo": "Cobertura cambiaria de KO con derivados",
     "empresa": "The Coca-Cola Company (KO)",
     "equipo": "Diego Avila Chavez y Santiago Mondragon Apodaca",
-    "corte": "13-nov-2026",
-    "periodo": "ene–jun 2027",
-    "nota": "Cifras leídas de outputs/ y entregables/modelo/ por dashboard/build_data.py; el dashboard no recalcula nada, salvo los dos controles interactivos (fórmulas de pago con las cifras exportadas).",
+    "corte": "13-nov-2026", "periodo": "ene–jun 2027", "version": "Paso 10c · 24-nov-2026",
 }}
 
-# ---------------------------------------------------------------- 1 · El riesgo
-exp, fx = xl_hoja("Exposición")
-DATA["exposicion"] = [{"mes": e["mes"], "base": c(e["eur_base"], fx), "min": c(e["eur_minimo"], fx),
-                       "max": c(e["eur_maximo"], fx)} for e in exp]
-cal, fcal = md_tabla("paso2_exposicion.md", "C.6 Calendario mensual")
-tot = next(x for x in cal if x["Mes"].startswith("Total"))
-DATA["exposicion_total"] = {k: c(num(tot[col]), fcal) for k, col in
-                            [("eur_base", "EUR base"), ("eur_min", "EUR mínimo"), ("eur_max", "EUR máximo"),
-                             ("usd_base", "USD base"), ("usd_min", "USD mínimo"), ("usd_max", "USD máximo")]}
-cer, fcer = md_tabla("paso4_estadistica.md", "4. Costo en riesgo por mes")
-DATA["costo_riesgo_mes"] = [{"mes": x["Mes"], "F0": c(num(x["F₀"]), fcer), "P5": c(num(x["P5"]), fcer),
-                             "presupuesto": c(num(x["Presupuesto USD (base)"]), fcer),
-                             "ingreso_P5": c(num(x["Ingreso a P5 USD (base)"]), fcer),
-                             "cer": c(num(x["Costo en riesgo (base)"]), fcer)}
-                            for x in cer if x["Mes"].startswith("2027")]
-sem = next(x for x in cer if x["Mes"].startswith("Semestre"))
-DATA["costo_riesgo"] = {"base": c(num(sem["Costo en riesgo (base)"]), fcer),
-                        "min": c(num(sem["Costo en riesgo (mín.)"]), fcer),
-                        "max": c(num(sem["Costo en riesgo (máx.)"]), fcer),
-                        "presupuesto": c(num(sem["Presupuesto USD (base)"]), fcer),
-                        "ingreso_P5": c(num(sem["Ingreso a P5 USD (base)"]), fcer)}
-v, f = md_dato("paso4_estadistica.md", "Materialidad")
-DATA["materialidad"] = c(num(v), f)
-DATA["utilidad_op_H1_2026"] = c(9031e6, "outputs/paso4_estadistica.md · 4. Costo en riesgo por mes (Materialidad: XBRL OperatingIncomeLoss, 10-Q Q2-2026)")
-v, f = md_dato("paso4_estadistica.md", "σ usada en el costo en riesgo")
-DATA["sigma_eur"] = c(num(v), f)
-
-# ---------------------------------------------------------------- 2 · Por qué el euro
-fb3 = "outputs/paso2_exposicion.md · B.3 Ingresos fuera de EE. UU. y menciones del euro"
-fb4 = "outputs/paso2_exposicion.md · B.4 Coberturas cambiarias y sensibilidad"
-fc3 = "outputs/paso2_exposicion.md · C.3 Escalón EMEA → Europa"
-fc4 = "outputs/paso2_exposicion.md · C.4 Participación de la eurozona en Europa (CCEP)"
-DATA["cadena"] = {
-    "ingresos_intl_pct": c(0.601, fb3 + " (10-K FY2025, Nota 17, p. 116)"),
-    "ingresos_intl": c(28814e6, fb3), "ingresos_tot": c(47941e6, fb3),
-    "euro_2025": c(0.04, fb3 + " (10-K, Item 7, p. 57)"),
-    "deuda_eur": c(15470e6, fb3 + " (10-K, nota de deuda, p. 89)"),
-    "nocional_fx": c(21128e6, fb4 + " (10-K, Item 7A, p. 58)"),
-    "ccep_compras": c(4543e6, fc3 + " (CCEP 20-F FY2025, Nota 20, p. 186; EUR)"),
-    "cchbc_compras": c(1931.2e6, fc3 + " (CCHBC IAR 2025, Nota 27 a), p. 322; EUR)"),
-    "suma_base": c(3021e6, fc3 + " (EUR, 2025)"),
-    "europa_en_emea": {"min": c(0.3575, fc3), "base": c(0.4157, fc3), "max": c(0.50, fc3 + " (supuesto del equipo)")},
-    "eurozona_en_europa": c(0.7132, fc4),
-    "emea_2025_usd": c(11513e6, fc3),
+# ---------------------------------------------------------------- 1 · Contexto y riesgo
+DATA["exp"] = {
+    "ccep_compras": c(p2["ccep_compras_meur"] * 1e6, f2 + " · CCEP 20-F FY2025, Nota 20 Related party transactions, p. 186", U["ccep_n20"]),
+    "ccep_frac_europa": c(p2["ccep_frac_europa"], f2 + " · CCEP 20-F, Nota 4, p. 151 (Europa 15,404 / total 20,901)", U["ccep_n4"]),
+    "ccep_frac_eurozona": c(p2["ccep_frac_eurozona"], f2 + " · CCEP 20-F, Revenue by geography, p. 49 (eurozona 10,986 / Europa 15,404)", U["ccep_geo"]),
+    "ccep_eur": c(p2["ccep_eurozona_meur"] * 1e6, f2 + " · Cálculo: 4,543 × 73.70 % × 71.32 %", U["ccep_n20"]),
+    "cchbc_compras": c(p2["cchbc_compras_meur"] * 1e6, f2 + " · CCHBC Integrated Annual Report 2025, Nota 27 a), p. 322 (PDF p. 324)", U["cchbc_n27"]),
+    "cchbc_min": c(p2["cchbc_euro_meur"]["minimo"] * 1e6, f2 + " · Cálculo: 1,931.2 × Italia 1,260.5 / 11,604.5 (Nota 6 a), p. 276, PDF p. 278)", U["cchbc_paises"]),
+    "cchbc_base": c(p2["cchbc_euro_meur"]["base"] * 1e6, f2 + " · Cálculo: 1,931.2 × 32.76 % (Nota 6 a), p. 275, PDF p. 277; 50 % de Developing es supuesto del equipo)", U["cchbc_n6a"]),
+    "g_max": c(p2["crecimiento_maximo"]["valor"], f2 + " · Cálculo: EMEA Q1 2026 / Q1 2025 − 1 = 3,012 / 2,657 − 1 (10-Q Q1-2026, Nota 16, p. 25); supuesto del equipo para el máximo", U["q1_n16"]),
 }
-cand, fcand = md_tabla("paso1_candidatos.md", "C) Tabla de candidatos")
-motivo = {
-    "6E": ("Elegido · cobertura A y B", "outputs/paso5a_coberturas.md"),
-    "CL": ("Elegido · especulación C", "outputs/paso5b_especulacion.md"),
-    "ZC": ("Descartado: sin serie semanal pública del JMAF; KO no publica volumen ni costo; lo compran los embotelladores (CCBSS)", "outputs/paso2_viabilidad_maiz.md"),
-    "SB": ("Descartado: sin serie semanal gratuita del azúcar refinada; KO no publica volumen ni costo", "outputs/paso2_viabilidad_azucar.md"),
-    "6M": ("No elegido: opciones casi sin liquidez (DEC26: volumen 0, IA 398)", "outputs/paso1_candidatos.md"),
-    "ALI": ("No elegido: liquidez muy baja (volumen 77)", "outputs/paso1_candidatos.md"),
-    "HO": ("No elegido: opciones con poca liquidez (281 en DEC26)", "outputs/paso1_candidatos.md"),
-    "KC": ("No elegido", "outputs/paso1_candidatos.md"),
-    "OJ": ("Descartado: Yahoo sin historial al 16-nov-2026", "outputs/paso1_candidatos.md"),
+for k in ["minimo", "base", "maximo"]:
+    u = U["ccep_n20"]
+    DATA["exp"][f"anual_{k}"] = c(p2["anual_meur"][k] * 1e6, f2 + " · Cálculo (anual 2025)", u)
+    DATA["exp"][f"sem_{k}"] = c(p2["semestre_meur"][k] * 1e6, f2 + " · Cálculo: anual ÷ 2", u)
+    DATA["exp"][f"mes_{k}"] = c(p2["mes_meur"][k] * 1e6, f2 + " · Cálculo: anual ÷ 12", u)
+cad = leer("paso2_cadena.csv").astype(object)
+cad = cad.where(cad.notna(), "")
+LINK_CAD = {"CCEP compras": U["ccep_n20"], "CCEP ingresos Europa": U["ccep_n4"], "CCEP ingresos total": U["ccep_n4"],
+            "CCEP ingresos eurozona": U["ccep_geo"], "CCHBC compras": U["cchbc_n27"], "CCHBC ingresos total": U["cchbc_n6a"],
+            "CCHBC Established": U["cchbc_n6a"], "CCHBC Italia": U["cchbc_paises"], "EMEA Q1": U["q1_n16"]}
+DATA["cadena"] = [{"concepto": r.concepto, "valor": str(r.valor), "tipo": r.tipo, "documento": r.documento, "nota": r.nota,
+                   "pag": str(r.pagina_impresa).removesuffix(".0"), "pdf": str(r.pagina_pdf).removesuffix(".0"),
+                   "u": next((v for k, v in LINK_CAD.items() if r.concepto.startswith(k)), None)} for r in cad.itertuples()]
+fcr = "Excel: hoja Costo en riesgo · data/processed/paso4_costo_en_riesgo.csv"
+DATA["presupuesto"] = c(float(a3.usd_presupuesto_base.sum()), "Excel: hoja Costo en riesgo · Cálculo: EUR base × F₀ (liquidaciones de CME del 13-nov-2026)", U["cme_6e_set"])
+DATA["costo_riesgo"] = c(float(c4.costo_riesgo_base.sum()), fcr + " · Cálculo: Σ EUR base × (F₀ − P5), σ = 6.89 %", U["cme_6e_set"])
+DATA["materialidad"] = c(r4["materialidad"], fcr + " · Cálculo: costo en riesgo ÷ utilidad de operación H1 2026 (USD 9,031 M, 10-Q Q2-2026, p. 2)", U["q2_is"])
+DATA["util_h1"] = c(util, "10-Q Q2-2026, Item 1, Condensed Consolidated Statements of Income (seis meses), p. 2; XBRL OperatingIncomeLoss", U["q2_is"])
+DATA["sigma_eur"] = c(r4["sigma_futuro_costo"], "Excel: hoja Supuestos (sigma_F) · Cálculo: 6E=F semanal sin roll × √52", U["yf_6e"])
+DATA["emea_2025"] = c(11513e6, "10-K FY2025, Nota 20 Operating Segments, p. 117", U["k10_n20"])
+DATA["intl_2025"] = c(28814e6, "10-K FY2025, Nota 20, Geographic and Customer Data, p. 116", U["k10_n20"])
+DATA["principally_euro"] = c("principally euro", "10-K FY2025, Item 7A, p. 58", U["k10_7a"])
+
+# ---------------------------------------------------------------- 2 · Cobertura sobre el euro
+fA = "Excel: hoja Coberturas A · data/processed/paso5a_futuros.csv"
+DATA["A"] = {"N_mes": c(int(f5.N.iloc[0]), fA + " · N = ROUND(1 × EUR mínimo del mes ÷ 125,000)", U["ccep_n20"]),
+             "N": c(int(f5.N.sum()), fA, U["ccep_n20"]),
+             "eur_cub": c(float(f5.eur_cubiertos.sum()), fA, U["ccep_n20"]),
+             "cob_base": c(float(f5.eur_cubiertos.sum() / f5.eur_base.sum()), fA + " · Cálculo: EUR cubiertos ÷ EUR base", U["ccep_n20"]),
+             "margen": c(float(f5.margen_inicial_usd.sum()), fA + " · USD 1,900 × N (CME, margen de mantenimiento 6E; inicial = 100 % Non-HRP)", U["cme_6e_margin"]),
+             "F0": {x.codigo: c(float(x.F0), "Liquidación de CME del 13-nov-2026 (data/raw/cme_6E_settlements_2026-11-13.csv)", U["cme_6e_set"]) for x in f5.drop_duplicates("codigo").itertuples()},
+             "ia": [{"codigo": x.codigo, "N": c(int(x.N_total), fA), "ia": c(int(x.IA), "Interés abierto al 13-nov-2026, CME", U["cme_6e_set"]),
+                     "pct": c(float(x.N_sobre_IA), fA + " · Cálculo: N ÷ IA")} for x in ia.itertuples()],
+             "dec26_ia": c(830219, "Interés abierto DEC 26 al 13-nov-2026, CME", U["cme_6e_set"]),
+             "roll": [{"de": x.de, "a": x.a, "fecha": str(x.fecha_roll), "N": c(int(x.N_rolados), "data/processed/paso5a_stack_roll.csv"),
+                       "spread": c(float(x.spread), "Spread de calendario, liquidaciones de CME del 13-nov-2026", U["cme_6e_set"]),
+                       "res": c(float(x.resultado_roll_usd), "data/processed/paso5a_stack_roll.csv · Cálculo: spread × 125,000 × N")} for x in sr.itertuples()],
+             "roll_total": c(float(sr.resultado_roll_usd.sum()), "data/processed/paso5a_stack_roll.csv · ya incluido en los F₀: no es ganancia adicional")}
+fB = "Excel: hoja Coberturas B · data/processed/paso5a_puts.csv"
+DATA["B"] = [{"codigo": x.codigo, "tipo": x.tipo, "K": c(float(x.strike), fB, U["cme_6e_opt_h"]), "N": c(int(x.N), fB),
+              "prima": c(float(x.prima_mercado), "Liquidación de CME del 13-nov-2026 (data/raw/cme/6E_opc_*_2026-11-13.txt)", U["cme_6e_opt_h"]),
+              "b76": c(float(x.prima_black76), fB + " · Black-76, σ = 6.89 %"), "dif_pct": c(float(x.dif_b76_pct), fB + " · Cálculo: (Black-76 − mercado) ÷ mercado"),
+              "dif_usd": c(float(x.dif_b76_usd_total), fB + " · Cálculo: diferencia × 125,000 × N"), "sig": bool(x.dif_significativa),
+              "binom": c(float(x.prima_binomial_anexo), fB + " · binomial europeo de 100 pasos (verificación, anexo)"),
+              "iv": c(float(x.vol_implicita), fB + " · volatilidad implícita despejada de la prima de mercado"),
+              "costo": c(float(x.costo_primas_usd), fB + " · prima × 125,000 × N", U["cme_6e_opt_h"]), "venc": x.vencimiento} for x in p5.itertuples()]
+gb = p5.groupby("tipo").costo_primas_usd.sum()
+DATA["B_costo"] = {k: c(float(gb[k]), fB + " · suma de las dos entregas", U["cme_6e_opt_h"]) for k in ["ATM", "OTM"]}
+fE = "Excel: hoja Escenarios precio único · data/processed/paso6_escenarios_precio_unico_resumen.csv"
+DATA["esc"] = []
+for r in eps.itertuples():
+    d = epu[epu.nivel == r.nivel]
+    DATA["esc"].append({
+        "nivel": r.nivel, "nombre": r.escenario, "sigma": c(float(r.sigma), "Excel: hoja Supuestos (sigma_" + r.nivel + ") · vol. móvil 26 semanas 6E=F 2021-2026 (medio = Paso 4)", U["yf_6e"]),
+        "spot_ene": c(float(d.spot_cierre.iloc[0]), fE + " · P5 adverso = F₀ × e^(−1.645σ√T), ene-2027", U["cme_6e_set"]),
+        "spot_jun": c(float(d.spot_cierre.iloc[-1]), fE + " · P5 adverso, jun-2027", U["cme_6e_set"]),
+        **{k: c(float(getattr(r, k)), fE) for k in ["presupuesto_F0", "sin_cobertura", "con_futuros", "con_puts_ATM", "con_puts_OTM",
+                                                   "gp_futuros", "gp_puts_ATM", "gp_puts_OTM", "costo_en_riesgo"]},
+        "materialidad": c(float(r.materialidad), fE + " · Cálculo: costo en riesgo ÷ utilidad de operación H1 2026", U["q2_is"]),
+        "meses": [{"mes": x.mes, "spot": x.spot_cierre, "F0": x.F0_pactado, "sin": x.sin_cobertura, "fut": x.con_futuros,
+                   "atm": x.con_puts_ATM, "otm": x.con_puts_OTM} for x in d.itertuples()]})
+es = j6["estres"]; fS = "Excel: hoja Tablero (Máximo estrés) · data/processed/paso6_resumen.json"
+DATA["estres"] = {"eur": c(es["eur"][0], f"Cálculo: peor cambio de 26 semanas de 6E=F, {es['eur'][1]} a {es['eur'][2]}; contexto: BCE, Financial Stability Review nov-2022", U["ecb_fsr"]),
+                  "cl": c(es["cl"][0], f"Cálculo: peor cambio de 26 semanas de CL=F, {es['cl'][1]} a {es['cl'][2]}; contexto: EIA, Today in Energy", U["eia"]),
+                  "periodo_eur": f"{es['eur'][1]} a {es['eur'][2]}",
+                  **{k: c(float(v), fS) for k, v in es["valores"].items()}}
+MC = j6["montecarlo"]; fV = "Excel: hoja Tablero (Moderado + volumen −30%) · data/processed/paso6_sobrecobertura.csv"
+DATA["vol30"] = {"sobre": c(float(so.sobrecobertura_eur.sum()), fV + " · Cálculo: EUR cubiertos − 70 % de los EUR base"),
+                 "sobre_pct": c(float(so.sobrecobertura_pct_reales.mean()), fV + " · Cálculo: sobrecobertura ÷ EUR reales"),
+                 **{f"P5_{k}": c(float(MC["medio_vol30"][k]["P5"]), "Excel: hoja Tablero · Montecarlo σ media, volumen −30 % (P5)") for k in ["sin", "A", "B_ATM", "B_OTM"]}}
+LQ = j6["liquidez_A"]; fL = "data/processed/paso6_resumen.json · liquidez A (outputs/paso6_evaluacion.md §5)"
+DATA["liq"] = {"bt": c(LQ["coberturista"]["backtest_necesidad"], fL + " · margen + mayor pérdida acumulada del backtest", U["fred"]),
+               "mc_medio": c(LQ["coberturista"]["MC_medio_P95_necesidad"], fL + " · P95 Montecarlo σ media"),
+               "mc_alto": c(LQ["coberturista"]["MC_alto_P95_necesidad"], fL + " · P95 Montecarlo σ alta"),
+               "margen_110": c(LQ["simulador_hrp"]["margen"], fL + " · margen al 110 % (perfil HRP, como cobró el simulador)", U["cme_hrp"])}
+# Tablero Montecarlo
+filas_t = list(t5.index)
+DATA["tablero"] = {s: [{"esc": i, **{k: c(float(df.loc[i, col]), f"Excel: hoja Tablero · data/processed/paso6_tablero_{s}.csv") for k, col in
+                                    [("sin", "Sin cobertura"), ("A", "Cobertura con futuros"), ("B_ATM", "Cobertura con opciones (ATM)"),
+                                     ("B_OTM", "Cobertura con opciones (OTM)"), ("C", "Especulación con opciones")]}} for i in filas_t]
+                   for s, df in [("P5", t5), ("media", tm)]}
+# Backtest
+fBT = "Excel: hoja Backtest · data/processed/paso6_backtest.csv (spot FRED DEXUSEU, 6E=F de Yahoo)"
+DATA["bt"] = {"meses": [{"flujo": x.flujo, "sin": x.sin_cobertura, "A": x.con_A, "atm": x.con_B_ATM, "otm": x.con_B_OTM, "pnl": x.pnl_futuros} for x in bt.itertuples()],
+              "f": fBT, "pnl": c(float(bt.pnl_futuros.sum()), fBT, U["fred"]), "max_perdida": c(j6["backtest"]["max_perdida"], fBT, U["yf_6e"]),
+              "sin": c(j6["backtest"]["totales"]["sin_cobertura"], fBT, U["fred"]), "A": c(j6["backtest"]["totales"]["con_A"], fBT, U["fred"]),
+              "C": c(j6["backtest"]["C"]["resultado"], "Excel: hoja Backtest · C: bull call spread CL 105.5/121 abierto el 15-may-2026 (1,917 spreads)", U["yf_cl"])}
+
+# ---------------------------------------------------------------- 3 · Especulación con CL
+liq_p1 = {  # outputs/paso1_candidatos.md, tabla C (volumen e interés abierto al 13-nov-2026; fuentes oficiales CME/ICE)
+    "6E=F": (169389, 876056, "https://www.cmegroup.com/markets/fx/g10/euro-fx/volume#tradeDate=20261113"),
+    "6M=F": (43792, 282053, "https://www.cmegroup.com/markets/fx/emerging-market/mexican-peso/volume#tradeDate=20261113"),
+    "SB=F": (132421, 1154396, U["ice"]), "ZC=F": (630205, 2009810, "https://www.cmegroup.com/markets/agriculture/grains/corn/volume#tradeDate=20261113"),
+    "ALI=F": (77, 581, "https://www.cmegroup.com/markets/metals/base/aluminum.volume.html"),
+    "HO=F": (139495, 254376, "https://www.cmegroup.com/markets/energy/refined-products/heating-oil.volume.html"),
+    "CL=F": (611617, 1905033, "https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.volume.html"),
+    "KC=F": (35172, 141006, U["ice"]),
 }
-DATA["candidatos"] = [{"activo": x["Activo"], "futuro": x["Futuro"], "bolsa": x["Bolsa"],
-                       "vol": c(num(x["Vol. anual (Cálculo)"]), fcand),
-                       "ia": c(num(x["Interés abierto"]), fcand),
-                       "estado": motivo.get(x["Futuro"], ("", ""))[0],
-                       "estado_f": motivo.get(x["Futuro"], ("", ""))[1]} for x in cand]
+txt1 = (R / "outputs/paso1_candidatos.md").read_text()
+for t, (vol, oi, _) in liq_p1.items():
+    assert f"{vol:,}" in txt1 and f"{oi:,}" in txt1, (t, vol, oi)
+DATA["opc_vol_cl"] = c(90722, "outputs/paso1_candidatos.md, tabla C · volumen de opciones CL DEC26 al 13-nov-2026 (el mayor de los candidatos)", "https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.volume.options.html")
+assert "90,722" in txt1
+DATA["activos"] = []
+for t, d in diag.items():
+    yfu = REG.get(f"data/raw/yf_{t.replace('=', '_')}_diario.csv")
+    vol_a = d.get("vol_anual")
+    vol_a = None if (vol_a is None or vol_a != vol_a) else vol_a   # NaN → "No encontrado" (OJ=F sin historial al 16-nov-2026)
+    liq = liq_p1.get(t)
+    DATA["activos"].append({"ticker": t, "desc": d["descripcion"],
+                            "vol": c(vol_a, "data/processed/paso1_diagnostico_yf.json · Cálculo: desv. est. semanal × √52 (10-nov-2023 a 13-nov-2026)", yfu) if vol_a else None,
+                            "volumen": c(liq[0], "outputs/paso1_candidatos.md, tabla C · volumen del 13-nov-2026", liq[2]) if liq else None,
+                            "oi": c(liq[1], "outputs/paso1_candidatos.md, tabla C · interés abierto del 13-nov-2026", liq[2]) if liq else None})
+fC = "Excel: hoja Especulación C · data/processed/paso5b_estrategias.csv"
+bcs = e5b.loc["Bull call spread"]
+DATA["C"] = {"F0": c(j5b["F"], "Liquidación de CLH27 del 13-nov-2026, CME", U["cme_cl_set"]),
+             "K1": c(84.0, fC, U["cme_cl_opt"]), "K2": c(97.0, fC, U["cme_cl_opt"]),
+             "p1": c(7.60, "Liquidación call LOH27 84 del 13-nov-2026, CME", U["cme_cl_opt"]),
+             "p2": c(3.57, "Liquidación call LOH27 97 del 13-nov-2026, CME", U["cme_cl_opt"]),
+             "n": c(int(bcs.contratos), fC + " · presupuesto USD 10 M ÷ (prima neta × 1,000)"),
+             "prima_neta": c(float(bcs.prima_neta_bbl), fC, U["cme_cl_opt"]),
+             "prima_total": c(float(bcs.prima_total_usd), fC, U["cme_cl_opt"]),
+             "gan_max": c(float(bcs.ganancia_max_usd), fC), "equilibrio": c(88.03, fC),
+             "E_hist": c(float(bcs.E_hist), fC + " · Montecarlo 100,000 trayectorias, σ histórica 41.9 %", U["yf_cl"]),
+             "E_impl": c(float(bcs.E_iv_atm), fC + " · Montecarlo, σ implícita ATM 44.2 %", U["cme_cl_opt"]),
+             "P_hist": c(float(bcs.Pgana_hist), fC + " · probabilidad de ganar, σ histórica"),
+             "iv_atm": c(j5b["iv_atm"], "data/processed/paso5b_parametros.json · implícita ATM de LOH27 (Black-76)", U["cme_cl_opt"]),
+             "vol_hist": c(j5b["vol_hist"], "config paso5b.vol_historica · CL=F semanal × √52", U["yf_cl"]),
+             "americana": c("americano", "NYMEX Rulebook cap. 310, regla 310101.F", U["nymex_310"])}
+DATA["C_cand"] = [{"nombre": i, "n": c(int(r.contratos), fC), "prima": c(float(r.prima_total_usd), fC, U["cme_cl_opt"]),
+                   "E_hist": c(float(r.E_hist), fC), "E_impl": c(float(r.E_iv_atm), fC), "P": c(float(r.Pgana_hist), fC)} for i, r in e5b.iterrows()]
+DATA["C_mc"] = [{"nivel": nv, "media": c(MC[nv]["C"]["media"], "Excel: hoja Escenarios (Montecarlo paso 6)"), "P5": c(MC[nv]["C"]["P5"], "Excel: hoja Escenarios"),
+                 "P95": c(MC[nv]["C"]["P95"], "Excel: hoja Escenarios")} for nv in ["alto", "medio", "bajo"]]
 
-# ---------------------------------------------------------------- 3 · ¿El futuro sirve?
-reg, freg = md_tabla("paso4_estadistica.md", "3. Regresión")
-DATA["regresion"] = [{"spot": x["Spot"], "version": x["Versión"], "h": c(num(x["h*"]), freg),
-                      "ee": c(num(x["Error estándar de h*"]), freg), "R2": c(num(x["R²"]), freg)} for x in reg]
-fred = next(x for x in reg if x["Spot"] == "FRED" and x["Versión"] == "sin roll")
-DATA["h_estrella"] = c(num(fred["h*"]), freg)
-DATA["R2"] = c(num(fred["R²"]), freg)
-v, f = md_dato("paso4_estadistica.md", "Baja de la desviación estándar")
-DATA["baja_desv"] = c(num(v), f)
-DATA["h_usada"] = c(0.942, "outputs/paso5a_coberturas.md · Decisiones del equipo (h* = 0.942, Paso 4b)")
-bst, fbst = md_tabla("paso4_estadistica.md", "3. Regresión", cabecera="Media")
-DATA["base_desv"] = [{"spot": x["Spot"], "desv": c(num(x["Desviación estándar"]), fbst)} for x in bst]
-sal, fsal = md_tabla("paso4_estadistica.md", "2. ¿El error está en Yahoo?")
-DATA["saltos_yahoo"] = [{"semana": x["Semana"], "yahoo": c(num(x["S−F Yahoo"]), fsal),
-                         "fred": c(num(x["S−F FRED"]), fsal)} for x in sal]
-dat, fdat = xl_hoja("Datos")
-DATA["serie_base_fred"] = {"f": fdat, "fecha": [str(x["viernes"])[:10] for x in dat],
-                           "S": [x["spot_FRED_DEXUSEU"] for x in dat], "F": [x["fut_6E=F"] for x in dat],
-                           "base": [x["base_S-F"] for x in dat], "CL": [x["CL=F"] for x in dat]}
-cur, fcur = md_tabla("paso3_contrato.md", "3. Curva de futuros y paridad")
-DATA["curva"] = [{"contrato": x["Contrato"], "F": c(num(x["Liquidación 6E"]), fcur),
-                  "paridad": c(num(x["F de paridad"]), fcur)} for x in cur]
-DATA["spot_13nov"] = c(1.10502, fcur.split(" · ")[0] + " · 3. Curva de futuros y paridad de tasas (Yahoo EURUSD=X)")
-DATA["spot_fred_13nov"] = c(1.1034, "outputs/paso5a_coberturas.md · A) Futuros 6E en corto (FRED DEXUSEU)")
-DATA["tam_6E"] = c(125000, "outputs/paso3_contrato.md · 1. Ficha del contrato 6E (Euro FX, CME)")
-DATA["bbl_CL"] = c(1000, "outputs/paso5b_especulacion.md · 1. Estilo de ejercicio y último día (\"1,000 barrels\")")
-DATA["tasas"] = {"usd_3m": c(0.04209, fcur), "eur_3m": c(0.02641, fcur)}
+# ---------------------------------------------------------------- simulador (outputs/paso5c_boletas.md §7)
+md5c = (R / "outputs/paso5c_boletas.md").read_text()
+fsim = "outputs/paso5c_boletas.md §7 · capturas en entregables/simulador/2026-11-24/"
+SIM = {"A_px": 1.0975, "B_px": 0.0048, "C1_px": 6.76, "C2_px": 2.98, "margen_A": 2091.00, "margen_final": 9730.00, "fondos": 102340.00, "C_neta": 3780}
+for t in ["**1.0975**", "**0.0048**", "**6.76**", "**2.98**", "2,091.00", "9,730.00", "102,340.00", "USD 3,780"]:
+    assert t in md5c, t
+DATA["sim"] = {k: c(v, fsim) for k, v in SIM.items()}
 
-# ---------------------------------------------------------------- 4 · A futuros
-fa, ffa = md_tabla("paso5a_coberturas.md", "A) Futuros 6E en corto")
-DATA["A"] = [{"mes": x["Mes"], "codigo": x["Código"], "N": c(num(x["N"]), ffa),
-              "eur_cub": c(num(x["EUR cubiertos"]), ffa), "cob": c(num(x["Cobertura efectiva"]), ffa),
-              "F0": c(num(x["F₀ (CME)"]), ffa), "justo": c(num(x["Precio justo"]), ffa),
-              "margen": c(num(x["Margen inicial (USD 1,900 × N)"]), ffa)} for x in fa if x["Mes"].startswith("2027")]
-t = next(x for x in fa if x["Mes"].startswith("Total"))
-DATA["A_total"] = {"N": c(num(t["N"]), ffa), "eur_cub": c(num(t["EUR cubiertos"]), ffa),
-                   "cob": c(num(t["Cobertura efectiva"]), ffa), "margen": c(num(t["Margen inicial (USD 1,900 × N)"]), ffa)}
-v, f = md_dato("paso5a_coberturas.md", "p (EUR mínimo")
-DATA["p"] = c(num(v), f)
-ia, fia = md_tabla("paso5a_coberturas.md", "Ejecución: N frente al interés abierto")
-DATA["A_ia"] = [{"contrato": x["Contrato"], "N": c(num(x["N total"]), fia), "ia": c(num(x["IA"]), fia),
-                 "pct": c(num(x["N / IA"]), fia)} for x in ia]
-DATA["A_dec26_ia"] = c(830219, "outputs/paso5a_coberturas.md · Plan alternativo: stack and roll")
-sr, fsr = md_tabla("paso5a_coberturas.md", "Plan alternativo: stack and roll")
-DATA["stack_roll"] = [{"roll": x["Roll"], "fecha": x["Fecha (vencimiento del cercano)"],
-                       "contratos": c(num(x["Contratos rolados"]), fsr), "spread": c(num(x["Spread (lejano − cercano)"]), fsr),
-                       "resultado": c(num(x["Resultado estimado (USD)"]), fsr)} for x in sr if x["Roll"] != "Total"]
-DATA["stack_roll_total"] = c(num(next(x for x in sr if x["Roll"] == "Total")["Resultado estimado (USD)"]), fsr)
-liq, fliq = md_tabla("paso6_evaluacion.md", "5. Liquidez")
-def liqv(concepto, col=1):
-    fila = next(x for x in liq if x["Concepto"].startswith(concepto))
-    return c(num(list(fila.values())[col]) * 1e6, fliq)
-DATA["liquidez"] = {
-    "margen_100": liqv("Margen inicial"), "margen_110": liqv("Margen inicial", 2),
-    "bt_perdida": liqv("Backtest: mayor pérdida"), "bt_necesidad_100": liqv("Backtest: necesidad"),
-    "bt_necesidad_110": liqv("Backtest: necesidad", 2),
-    "mc_medio_100": liqv("Montecarlo σ media: P95 de la necesidad"), "mc_medio_110": liqv("Montecarlo σ media: P95 de la necesidad", 2),
-    "mc_alto_100": liqv("Montecarlo σ alta"), "mc_perdida_medio": liqv("Montecarlo σ media: P95 de la mayor"),
-}
-bt, fbt = xl_hoja("Backtest")
-DATA["backtest"] = [{"flujo": x["flujo"], "sin": c(x["sin_cobertura"], fbt), "A": c(x["con_A"], fbt),
-                     "B_ATM": c(x["con_B_ATM"], fbt), "B_OTM": c(x["con_B_OTM"], fbt),
-                     "pnl_fut": c(x["pnl_futuros"], fbt), "spot": c(x["spot_fred"], fbt)} for x in bt]
-btm, fbtm = md_tabla("paso6_evaluacion.md", "A, B y C por mes")
-tb = next(x for x in btm if "Total" in x["Flujo"])
-DATA["backtest_total"] = {k: c(num(tb[col]) * 1e6, fbtm) for k, col in
-                          [("sin", "Sin cobertura"), ("pnl_fut", "P&L futuros"), ("A", "Con A"),
-                           ("B_ATM", "Con B ATM"), ("B_OTM", "Con B OTM"), ("C", "C")]}
+# ---------------------------------------------------------------- anexo: estadística y métodos reemplazados
+fR = "Excel: hoja Estadística · data/processed/paso4_regresion.csv"
+DATA["reg"] = [{"spot": x.spot, "version": x.version, "h": c(float(x.h), fR, U["fred"] if x.spot == "fred" else None),
+                "R2": c(float(x.R2), fR)} for x in r4reg.itertuples()]
+v2 = leer("paso2_calendario_eur_v2.csv")
+DATA["v2"] = {"eur_base": c(float(v2.eur_base.sum()), "data/processed/paso2_calendario_eur_v2.csv · método evaluado y reemplazado (src/paso2_exposicion_v2_reemplazado.py)"),
+              "h_estrella": c(0.942, "config paso5a.h_estrella_regresion · Paso 4b (solo anexo)", U["fred"])}
+dat = leer("paso4_series_base.csv")
+DATA["serie_base"] = {"f": "Excel: hoja Datos · data/processed/paso4_series_base.csv (FRED DEXUSEU y 6E=F)", "u": U["fred"],
+                      "fecha": dat.viernes.astype(str).tolist(), "base": dat.base.round(6).tolist()}
 
-# ---------------------------------------------------------------- 5 · B puts
-pb, fpb = md_tabla("paso5a_coberturas.md", "B) Puts europeos")
-DATA["B"] = [{"entrega": int(x["Entrega"]), "codigo": x["Código"], "tipo": x["Tipo"],
-              "K": c(num(x["Strike (vs F₀)"].split(" ")[0]), fpb), "N": c(num(x["N"]), fpb),
-              "prima": c(num(x["Prima de mercado"]), fpb), "b76": c(num(x["Prima Black-76"]), fpb),
-              "binom": c(num(x["Prima binomial"]), fpb), "iv": c(num(x["Vol. implícita"]), fpb),
-              "costo": c(num(x["Costo total en primas (USD)"]), fpb), "piso": c(num(x["Piso por EUR (K − prima)"]), fpb),
-              "ingreso_min": c(num(x["Ingreso mínimo de la entrega (USD)"]), fpb)} for x in pb]
-pt, fpt = md_tabla("paso5a_coberturas.md", "B) Puts europeos", cabecera="Ingreso mínimo sobre EUR cubiertos")
-DATA["B_total"] = {x["Strike"]: {"costo": c(num(x["Costo total en primas (USD)"]), fpt),
-                                 "ingreso_min": c(num(x["Ingreso mínimo sobre EUR cubiertos (USD)"]), fpt)} for x in pt}
-DATA["B_vencimientos"] = {"EUUH27": c("05-mar-2027", fpb), "EUUM27": c("04-jun-2027", fpb)}
-
-# ---------------------------------------------------------------- 6 · Tablero
-def tablero(hoja_fila):
-    ws = wb["Tablero"]
-    filas = list(ws.iter_rows(min_row=hoja_fila, values_only=True))
-    out = []
-    for r in filas[1:6]:
-        out.append({"escenario": r[0], "sin": c(r[1], f"{XLN} · hoja Tablero"), "A": c(r[2], f"{XLN} · hoja Tablero"),
-                    "B_ATM": c(r[3], f"{XLN} · hoja Tablero"), "B_OTM": c(r[4], f"{XLN} · hoja Tablero"),
-                    "C": c(r[5], f"{XLN} · hoja Tablero")})
-    return out
-ws = wb["Tablero"]
-fila_media = next(i for i, r in enumerate(ws.iter_rows(values_only=True), 1) if r[0] == "Escenario (media)")
-DATA["tablero"] = {"P5": tablero(4), "media": tablero(fila_media)}
-esc, fesc = md_tabla("paso6_evaluacion.md", "a) Estrés histórico")
-DATA["estres"] = [{"activo": x["Activo"], "cambio": c(num(x["Peor cambio de 26 semanas"]), fesc),
-                   "periodo": x["Periodo"], "evento": x["Evento (fuente)"].split(" Fuente")[0]} for x in esc]
-DATA["sigmas"] = c({"EUR": [0.1098, 0.0689, 0.0461], "CL": [0.7566, 0.419, 0.2183]},
-                   "outputs/paso6_evaluacion.md · b) Montecarlo (σ alto / medio / bajo)")
-DATA["sobrecobertura"] = c(130.8e6, "outputs/paso6_evaluacion.md · c) Riesgo moderado con volumen −30 %")
-
-# ---------------------------------------------------------------- 7 · C
-est, fest = md_tabla("paso5b_especulacion.md", "3. Estrategias candidatas")
-DATA["C_candidatas"] = [{"estrategia": x["Estrategia"], "patas": x["Patas (prima USD/bbl)"],
-                         "contratos": c(num(x["Contratos"]), fest), "prima": c(num(x["Prima total (USD)"]), fest),
-                         "gan_max": x["Ganancia máxima (USD)"], "equilibrio": x["Punto(s) de equilibrio (USD/bbl)"]} for x in est]
-mc5, fmc5 = md_tabla("paso5b_especulacion.md", "Montecarlo")
-DATA["C_mc_5b"] = [{"estrategia": x["Estrategia"], "E_hist": c(num(x["E[resultado] σ hist. 41.9 %"]), fmc5),
-                    "E_impl": c(num(x["E[resultado] σ impl. 44.2%"]), fmc5), "P_hist": c(num(x["P(ganar) hist."]), fmc5),
-                    "P5": c(num(x["P5 hist."]), fmc5), "P95": c(num(x["P95 hist."]), fmc5)} for x in mc5]
-f5b = "outputs/paso5b_especulacion.md · 3. Estrategias candidatas (Bull call spread)"
-DATA["C"] = {"F0": c(84.18, "outputs/paso5b_especulacion.md · Parámetros (F₀ CLH27)"),
-             "K1": c(84.0, f5b), "K2": c(97.0, f5b), "prima1": c(7.60, f5b), "prima2": c(3.57, f5b),
-             "contratos": c(2481, f5b), "barriles": c(2481000, f5b), "prima_total": c(9998430, f5b),
-             "gan_max": c(22254570, f5b), "equilibrio": c(88.03, f5b),
-             "vencimiento": c("17-feb-2027", "outputs/paso5b_especulacion.md · 1. Estilo de ejercicio y último día")}
-smi, fsmi = md_tabla("paso5b_especulacion.md", "2. Volatilidad implícita")
-DATA["sonrisa"] = {"f": fsmi, "K": [num(x["Strike"]) for x in smi],
-                   "iv_call": [num(x["Vol. implícita call"]) for x in smi], "iv_put": [num(x["Vol. implícita put"]) for x in smi]}
-v, f = md_dato("paso5b_especulacion.md", "Volatilidad implícita ATM")
-ivatm, hist = [num(p) for p in v.split("/")]
-DATA["iv_atm"] = c(ivatm, f); DATA["vol_hist_cl"] = c(hist, f)
-mc6, fmc6 = md_tabla("paso6_evaluacion.md", "b) Montecarlo")
-DATA["C_mc_6"] = [{"sigma": x["σ"], "media": c(num(x["Media (M USD)"]) * 1e6, fmc6), "P5": c(num(x["P5"]) * 1e6, fmc6),
-                   "P95": c(num(x["P95"]) * 1e6, fmc6)} for x in mc6 if x["Estrategia"] == "C spread CL" and x["σ"] != "medio_vol30"]
-fbc = "outputs/paso6_evaluacion.md · 1. Backtest (C · bull call spread CL abierto el 15-may-2026)"
-DATA["C_backtest"] = {"CL_ini": c(105.42, fbc), "K1": c(105.5, fbc), "K2": c(121.0, fbc), "spreads": c(1917, fbc),
-                      "CL_fin": c(97.97, fbc), "resultado": c(-10.0e6, fbc), "venc": c("15-oct-2026", fbc)}
-fsim = "outputs/paso5c_boletas.md · 6. Notas de la ejecución"
-DATA["simulador"] = {"margen_A": c(20901, fsim), "margen_A_est": c(19000, fsim), "margen_C_extra": c(5910, fsim),
-                     "C_costo": c(8100, fsim), "CL_dia": c(81.61, fsim),
-                     "margen_C_real": c(7.33e6, "outputs/paso6_evaluacion.md · 5. Liquidez (Cálculo: 5,910 / 2 × 2,481, supuesto lineal)")}
-
-# ---------------------------------------------------------------- verificación de cifras fijas
-# Las cifras escritas a mano arriba deben aparecer literalmente en su archivo fuente.
-FIJAS = {
-    "paso2_exposicion.md": ["60.1 %", "28,814", "47,941", "euro +4 % en 2025", "15,470", "21,128", "4,543", "1,931.2",
-                            "€3,021 millones", "35.75%", "41.57%", "50.00 %", "71.32 %", "11,513"],
-    "paso4_estadistica.md": ["9,031,000,000"],
-    "paso5a_coberturas.md": ["**h\\*** = 0.942", "830,219", "**1.1034**"],
-    "paso3_contrato.md": ["125,000", "**1.10502**", "**4.209%**", "**2.641%**"],
-    "paso6_evaluacion.md": ["10.98%", "6.89 %", "4.61%", "75.66%", "41.90 %", "21.83%", "**130.8 millones de EUR**",
-                            "CL=F = 105.42", "compra 105.5", "vende 121.0", "**1,917 spreads**", "97.97", "15-oct-2026", "USD 7.33 M"],
-    "paso5b_especulacion.md": ["1,000 barrels", "**84.18**", "84.00 @ 7.60", "97.00 @ 3.57", "2,481", "9,998,430", "22,254,570", "88.03", "17-feb-2027"],
-    "paso5c_boletas.md": ["USD 20,901", "USD 19,000", "USD 8,100", "**81.61**", "34,946 a USD 40,856"],
-}
-for arch, textos in FIJAS.items():
-    contenido = (O / arch).read_text()
-    faltan = [t for t in textos if t not in contenido]
-    if faltan:
-        raise SystemExit(f"Cifras fijas que no aparecen en outputs/{arch}: {faltan}")
+# ---------------------------------------------------------------- hipervínculo por defecto para cifras calculadas
+# Las cifras que son Cálculo del modelo enlazan a la fuente primaria de su insumo principal (el precio pactado o la prima).
+DEF_U = {"esc": U["cme_6e_set"], "tablero": U["cme_6e_set"], "vol30": U["cme_6e_set"], "liq": U["cme_6e_margin"], "A": U["cme_6e_set"],
+         "B": U["cme_6e_opt_h"], "estres": U["yf_6e"], "bt": U["fred"], "C": U["cme_cl_opt"], "C_cand": U["cme_cl_opt"], "C_mc": U["cme_cl_opt"],
+         "sim": "https://www.cmegroup.com/trading_tools/simulator", "reg": U["fred"], "v2": U["ccep_n20"], "exp": U["ccep_n20"]}
+def llena(x, u):
+    if isinstance(x, dict):
+        if {"v", "f"} <= set(x) and not x.get("u"): x["u"] = u
+        for v in x.values(): llena(v, u)
+    elif isinstance(x, list):
+        for v in x: llena(v, u)
+for k, u in DEF_U.items(): llena(DATA[k], u)
+if DATA["C"]["F0"]["u"] != U["cme_cl_set"]: raise SystemExit("F0 de CL debe enlazar a las liquidaciones de futuros")
 
 # ---------------------------------------------------------------- salida
 txt = json.dumps(DATA, ensure_ascii=False, indent=1, default=str)
@@ -315,10 +268,18 @@ txt = json.dumps(DATA, ensure_ascii=False, indent=1, default=str)
 
 def cuenta(x):
     if isinstance(x, dict):
-        return (1 if set(x) == {"v", "f"} else 0) + sum(cuenta(v) for v in x.values())
+        return (1 if {"v", "f"} <= set(x) else 0) + sum(cuenta(v) for v in x.values())
     if isinstance(x, list):
         return sum(cuenta(v) for v in x)
     return 0
 
 
-print("ok dashboard/data.json · cifras con fuente:", cuenta(DATA))
+def con_url(x):
+    if isinstance(x, dict):
+        return (1 if {"v", "f"} <= set(x) and x.get("u") else 0) + sum(con_url(v) for v in x.values())
+    if isinstance(x, list):
+        return sum(con_url(v) for v in x)
+    return 0
+
+
+print("ok dashboard/data.json · cifras con fuente:", cuenta(DATA), "· con hipervínculo:", con_url(DATA))

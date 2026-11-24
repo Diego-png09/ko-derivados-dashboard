@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Genera dashboard/Presentacion_KO.pdf (las 8 pantallas) con Chrome sin interfaz.
+# Genera dashboard/Presentacion_KO.pdf (4 pantallas principales + anexo) con Chrome sin interfaz.
 # Requiere el sitio servido en local: (cd dashboard && python3 -m http.server 8765 --bind 127.0.0.1)
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"

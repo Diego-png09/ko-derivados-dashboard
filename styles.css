@@ -194,3 +194,17 @@ body.imprimir #p2 td, body.imprimir #p2 th { padding: 2px 6px; }
 body.imprimir #p7 .graf { height: 200px; }
 body.imprimir .pantalla { animation: none !important; opacity: 1 !important; }
 body.imprimir .flecha { transform: none !important; width: auto !important; } body.imprimir .cadena { flex-wrap: nowrap; } body.imprimir .marca-s { display: inline; }
+
+/* ---------- Paso 10c: enlaces a la fuente, anexo y texto */
+a.lk { font-size: 11px; margin-left: 2px; text-decoration: none; color: var(--a); vertical-align: super; }
+a.lk:hover { text-decoration: underline; }
+#anexo { font: inherit; font-size: 13px; height: 30px; margin-left: 8px; border-radius: 8px; border: 1px solid var(--linea); background: var(--papel); color: var(--tinta); padding: 0 6px; }
+.tarjeta.texto p { margin: 0 0 10px; font-size: 15px; }
+table.chica { font-size: 12px; }
+table.chica th, table.chica td { padding: 4px 6px; }
+.pantalla.anexo .num { color: var(--suave); }
+body.imprimir .pantalla.anexo { height: auto; min-height: 6.85in; overflow: visible; }
+body.imprimir .tarjeta.texto p { font-size: 13px; }
+body.imprimir .solo-pantalla { display: none; }
+body.imprimir #p3 .graf { height: 215px; }
+body.imprimir #p3 .mensaje { margin-bottom: 6px; }

@@ -389,3 +389,21 @@ table.mini td.txt { white-space: nowrap; }
 .bv-qr iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; }
 .bv-qr .bv-respaldo { position: absolute; inset: 8%; width: 84%; height: 84%; image-rendering: pixelated; z-index: 0; }
 @media (max-width: 760px) { .bv-caja { grid-template-columns: minmax(0, 1fr); gap: 20px; } .bv-qr { width: min(80vw, 420px); } }
+
+/* ---------- Paso 11d (26-nov-2026): instrucciones en la bienvenida (presentador) y vista del espectador */
+ol.instr { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; max-width: 620px; }
+ol.instr li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: center; font-size: clamp(14px, 1.15vw, 17px); line-height: 1.35; }
+ol.instr .ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; background: rgba(255,255,255,.16); }
+ol.instr .ic u { text-decoration-style: dotted; font-size: 14px; }
+#bienvenida h1 { font-size: clamp(28px, 3.2vw, 48px); margin-bottom: 12px; }
+#bienvenida .bv-url { margin: 0; }
+#bienvenida #bv-ir { margin-top: 18px; }
+#instr-esp { position: fixed; inset: 0; z-index: 60; overflow-y: auto; color: #fff; padding: 28px 22px;
+  background: linear-gradient(150deg, var(--ko) 0%, var(--ko-osc) 100%); display: flex; align-items: center; justify-content: center; }
+.ie-caja { max-width: 640px; width: 100%; }
+#instr-esp h1 { font-size: clamp(26px, 6vw, 40px); line-height: 1.1; margin: 0 0 6px; font-weight: 800; }
+.ie-espera { margin: 22px 0 0; font-size: 15px; display: flex; align-items: center; gap: 10px; opacity: .9; }
+.ie-espera .pt { width: 10px; height: 10px; border-radius: 50%; background: #fff; animation: late 1.2s ease-in-out infinite; }
+@keyframes late { 50% { opacity: .25; } }
+@media (max-height: 800px) { ol.instr { gap: 6px; } ol.instr .ic { width: 34px; height: 34px; font-size: 16px; } ol.instr li { grid-template-columns: 34px minmax(0, 1fr); } }

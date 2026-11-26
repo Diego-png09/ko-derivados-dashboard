@@ -433,13 +433,15 @@
     clearTimeout(tPub);
     tPub = setTimeout(() => {
       fetch(`${SYNC.servidor}/${SYNC.tema}`, { method: "POST", body: String(i) })
-        .then((r) => estado(r.ok ? `pantalla ${etiqueta(i)} enviada` : "sin conexión"))
+        .then((r) => estado(r.ok ? (i < 0 ? "bienvenida (QR) enviada" : `pantalla ${etiqueta(i)} enviada`) : "sin conexión"))
         .catch(() => estado("sin conexión"));
     }, 150);
   }
   function recibe(msg) {
     const i = parseInt(msg, 10);
+    if (i === -1) { if (siguiendo) muestraInstr(true); return; }   // el presentador tiene abierto el QR de bienvenida
     if (isNaN(i) || i < 0 || i >= P.length) return;
+    muestraInstr(false);
     ultimoPresentador = i;
     if (siguiendo) ir(i, "sync");
   }
@@ -459,6 +461,14 @@
   const QR_IFRAME = "https://ctrl-x.com.mx/qr-3d-view.php?id=ecf5c1ae2b&embed=1";   // QR 3D cuyo contenido es URL_PUBLICA (verificado 26-nov-2026)
   const URL_PUBLICA = "https://diego-png09.github.io/ko-derivados-dashboard/";
   let qrAbierto = false;
+  const INSTR = `<ol class="instr">
+      <li><span class="ic">✋</span><div><b>No toques nada.</b> Tu pantalla avanza sola, al mismo tiempo que la nuestra.</div></li>
+      <li><span class="ic"><u>123</u></span><div><b>Cifras subrayadas:</b> tócalas y aparece de dónde sale el dato (documento, nota y página).</div></li>
+      <li><span class="ic">↗</span><div><b>Flechita junto a una cifra:</b> abre la fuente original (SEC, CME, reportes anuales). Mejor ábrela al final, para no perderte.</div></li>
+      <li><span class="ic">⤢</span><div><b>En una gráfica:</b> la abre en pantalla completa.</div></li>
+      <li><span class="ic">↩</span><div><b>Si te mueves de pantalla,</b> arriba aparece "seguir al presentador": tócalo y vuelves con nosotros.</div></li>
+      <li><span class="ic">▾</span><div><b>Anexo:</b> el detalle técnico, para revisarlo después.</div></li>
+    </ol>`;
   function abreQR() {
     let el = document.getElementById("bienvenida");
     if (!el) {
@@ -468,8 +478,8 @@
           <div class="bv-izq">
             <div class="port-kicker">The Coca-Cola Company (KO) · Proyecto Final Derivados</div>
             <h1>Escanea para seguir la presentación en tu celular</h1>
-            <p>Tu pantalla cambiará sola con la nuestra. Toca cualquier cifra para ver de dónde sale.</p>
             <p class="bv-url">${esc(URL_PUBLICA.replace("https://", ""))}</p>
+            ${INSTR}
             <button id="bv-ir">Comenzar →</button>
           </div>
           <div class="bv-qr"><iframe src="${esc(QR_IFRAME)}" title="Código QR de la presentación" allowfullscreen></iframe>
@@ -479,11 +489,27 @@
       el.querySelector("#bv-ir").onclick = cierraQR;
     }
     el.hidden = false; qrAbierto = true;
+    publica(-1);   // los espectadores ven las instrucciones
   }
   function cierraQR() {
     const el = document.getElementById("bienvenida");
     if (el) el.hidden = true;
     qrAbierto = false;
+    publica(actual);   // los espectadores pasan a la pantalla actual (la portada al empezar)
+  }
+  // vista del espectador mientras el presentador tiene abierto el QR
+  function muestraInstr(si) {
+    let el = document.getElementById("instr-esp");
+    if (!si) { if (el) el.hidden = true; return; }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "instr-esp";
+      el.innerHTML = `<div class="ie-caja"><div class="port-kicker">The Coca-Cola Company (KO) · Proyecto Final Derivados</div>
+        <h1>Bienvenido: así funciona esta presentación</h1>${INSTR}
+        <p class="ie-espera"><span class="pt"></span>Esperando a que empiece la presentación…</p></div>`;
+      document.body.appendChild(el);
+    }
+    el.hidden = false;
   }
   document.addEventListener("keydown", (e) => {
     if (!PRESENTADOR || IMPRIMIR) return;

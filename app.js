@@ -10,6 +10,7 @@
   const SYNC = { servidor: "https://ntfy.sh", tema: "ko-derivados-9c31ef72c6c10002" };
   const q = new URLSearchParams(location.search);
   const PRESENTADOR = q.get("presenter") === "1";
+  const HASH_INICIAL = location.hash;   // antes de que ir() escriba #N
   const IMPRIMIR = q.get("print") === "1";
   const CON_SYNC = !IMPRIMIR && q.get("sync") !== "0" && location.protocol.startsWith("http");
 
@@ -452,6 +453,44 @@
     es.onopen = () => estado();
   }
 
+  // ------------------------------------------------------------ QR de bienvenida (solo presentador)
+  // Se muestra al abrir ?presenter=1, antes de la portada. Los espectadores no lo ven: mientras está abierto
+  // el presentador publica la pantalla 0 (portada). → / Enter / Espacio / clic en "Comenzar" lo cierra; la tecla Q lo vuelve a abrir.
+  const QR_IFRAME = "https://ctrl-x.com.mx/qr-3d-view.php?id=ecf5c1ae2b&embed=1";   // QR 3D cuyo contenido es URL_PUBLICA (verificado 26-nov-2026)
+  const URL_PUBLICA = "https://diego-png09.github.io/ko-derivados-dashboard/";
+  let qrAbierto = false;
+  function abreQR() {
+    let el = document.getElementById("bienvenida");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "bienvenida";
+      el.innerHTML = `<div class="bv-caja">
+          <div class="bv-izq">
+            <div class="port-kicker">The Coca-Cola Company (KO) · Proyecto Final Derivados</div>
+            <h1>Escanea para seguir la presentación en tu celular</h1>
+            <p>Tu pantalla cambiará sola con la nuestra. Toca cualquier cifra para ver de dónde sale.</p>
+            <p class="bv-url">${esc(URL_PUBLICA.replace("https://", ""))}</p>
+            <button id="bv-ir">Comenzar →</button>
+          </div>
+          <div class="bv-qr"><iframe src="${esc(QR_IFRAME)}" title="Código QR de la presentación" allowfullscreen></iframe>
+            <img src="qr.png" alt="QR de respaldo" class="bv-respaldo"></div>
+        </div>`;
+      document.body.appendChild(el);
+      el.querySelector("#bv-ir").onclick = cierraQR;
+    }
+    el.hidden = false; qrAbierto = true;
+  }
+  function cierraQR() {
+    const el = document.getElementById("bienvenida");
+    if (el) el.hidden = true;
+    qrAbierto = false;
+  }
+  document.addEventListener("keydown", (e) => {
+    if (!PRESENTADOR || IMPRIMIR) return;
+    if (qrAbierto && ["ArrowRight", "Enter", " ", "PageDown", "Escape"].includes(e.key)) { e.preventDefault(); e.stopImmediatePropagation(); cierraQR(); }
+    else if (!qrAbierto && (e.key === "q" || e.key === "Q") && !["INPUT", "SELECT"].includes(e.target.tagName)) abreQR();
+  }, true);
+
   // ------------------------------------------------------------ inicio
   if (PRESENTADOR) document.body.classList.add("proyeccion");
   if (IMPRIMIR) {
@@ -465,5 +504,6 @@
     const idx = h.startsWith("A") ? principales + parseInt(h.slice(1), 10) : parseInt(h, 10);
     ir(isNaN(idx) ? 0 : idx, "inicio");
     if (CON_SYNC) { estado(); if (PRESENTADOR) publica(actual); else suscribe(); }
+    if (PRESENTADOR && !HASH_INICIAL) abreQR();   // al abrir el enlace del presentador sin #pantalla
   }
 })();

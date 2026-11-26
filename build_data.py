@@ -116,6 +116,8 @@ DATA["util_h1"] = c(util, "10-Q Q2-2026, Item 1, Condensed Consolidated Statemen
 DATA["sigma_eur"] = c(r4["sigma_futuro_costo"], "Excel: hoja Supuestos (sigma_F) · Cálculo: 6E=F semanal sin roll × √52", U["yf_6e"])
 DATA["emea_2025"] = c(11513e6, "10-K FY2025, Nota 20 Operating Segments, p. 117", U["k10_n20"])
 DATA["intl_2025"] = c(28814e6, "10-K FY2025, Nota 20, Geographic and Customer Data, p. 116", U["k10_n20"])
+DATA["ingresos_2025"] = c(47941e6, "10-K FY2025, Nota 20, Geographic and Customer Data, p. 116 (total de ingresos de operación 2025)", U["k10_n20"])
+DATA["intl_pct_2025"] = c(28814 / 47941, "Cálculo: ingresos internacionales ÷ ingresos totales 2025 = 28,814 ÷ 47,941 (10-K FY2025, Nota 20, p. 116)", U["k10_n20"])
 DATA["principally_euro"] = c("principally euro", "10-K FY2025, Item 7A, p. 58", U["k10_7a"])
 
 # ---------------------------------------------------------------- 2 · Cobertura sobre el euro

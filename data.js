@@ -362,6 +362,16 @@ window.DATA = {
   "f": "10-K FY2025, Nota 20, Geographic and Customer Data, p. 116",
   "u": "https://www.sec.gov/Archives/edgar/data/21344/000162828026010047/ko-20251231.htm#ia2cb76fa2c6c4a82a91d7a0d2310cb54_199"
  },
+ "ingresos_2025": {
+  "v": 47941000000.0,
+  "f": "10-K FY2025, Nota 20, Geographic and Customer Data, p. 116 (total de ingresos de operación 2025)",
+  "u": "https://www.sec.gov/Archives/edgar/data/21344/000162828026010047/ko-20251231.htm#ia2cb76fa2c6c4a82a91d7a0d2310cb54_199"
+ },
+ "intl_pct_2025": {
+  "v": 0.6010304332408586,
+  "f": "Cálculo: ingresos internacionales ÷ ingresos totales 2025 = 28,814 ÷ 47,941 (10-K FY2025, Nota 20, p. 116)",
+  "u": "https://www.sec.gov/Archives/edgar/data/21344/000162828026010047/ko-20251231.htm#ia2cb76fa2c6c4a82a91d7a0d2310cb54_199"
+ },
  "principally_euro": {
   "v": "principally euro",
   "f": "10-K FY2025, Item 7A, p. 58",

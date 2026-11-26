@@ -31,6 +31,7 @@
     return `<span class="cifra" tabindex="0" data-f="${esc(o.f)}">${fm[f](o.v, ...a)}</span>${lk}`;
   };
   const kpi = (cl, et, va, de = "") => `<div class="kpi ${cl}"><div class="et">${et}</div><div class="va">${va}</div><div class="de">${de}</div></div>`;
+  const amp = (id) => `<button class="ampliar" data-g="${id}" title="Ver en pantalla completa (Esc para salir)" aria-label="Pantalla completa">⤢</button>`;
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
   // ------------------------------------------------------------ Plotly común
@@ -56,106 +57,147 @@
   const medio = esc3.find((x) => x.nivel === "medio");
   const alto = esc3.find((x) => x.nivel === "alto");
 
-  // 1 · Contexto y riesgo
+  // 0 · Portada
   P.push({
-    t: "Contexto y riesgo",
+    t: "Portada", portada: true,
     html: () => `
-      <h1>KO recibe euros de Europa; el riesgo cambiario del semestre es pequeño frente a su utilidad</h1>
-      <div class="rejilla d3">
-        <div class="tarjeta texto">
-          <p><b>The Coca-Cola Company (KO)</b> vende concentrado y jarabes a embotelladores de todo el mundo. En Europa, sus dos embotelladores principales, <b>Coca-Cola Europacific Partners (CCEP)</b> y <b>Coca-Cola HBC (CCHBC)</b>, le compran en euros. KO reporta en dólares, así que si el euro baja, los mismos euros valen menos dólares. Su propio 10-K dice que cubre sobre todo el euro (${c(D.principally_euro, "txt")}).</p>
-          <p>Medimos cuántos euros recibirá KO de enero a junio de 2027 con <b>datos directos en euros</b> de los reportes anuales de CCEP y CCHBC (lo que le compraron a KO en 2025 en la eurozona), sin proyecciones. El escenario <b>mínimo</b> es la parte verificable; el base y el máximo dependen de supuestos.</p>
-          <p>Con la volatilidad histórica del euro, en el peor caso al 95 % KO dejaría de recibir ${c(D.costo_riesgo, "musd")} en el semestre. Es el <b>${c(D.materialidad, "pct", 2)}</b> de su utilidad de operación del primer semestre de 2026 (${c(D.util_h1, "musd", 0)}).</p>
+      <div class="portada">
+        <div class="port-izq">
+          <div class="port-kicker">Proyecto Final · Mercado de Futuros y Opciones</div>
+          <h1 class="port-tit">The Coca-Cola Company <span>(KO)</span></h1>
+          <p class="port-sub">¿Debe KO proteger los euros que recibirá de enero a junio de 2027?</p>
+          <p class="port-sub2">Cobertura con futuros y opciones sobre el euro, y una estrategia de especulación con petróleo.</p>
+          <div class="port-pie">
+            <div><b>Equipo</b>Diego Avila Chavez · Santiago Mondragon Apodaca</div>
+            <div><b>Datos de mercado</b>al viernes ${esc(D.meta.corte)}</div>
+          </div>
+          <svg class="port-onda" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0,80 C150,20 300,130 600,40 L600,120 L0,120 Z"/></svg>
         </div>
-        <div class="tarjeta"><h3>EUR por recibir, ene–jun 2027</h3><div id="g1" class="graf"></div>
-          <p class="nota">Semestre = compras anuales 2025 ÷ 2. Máximo = base × (1 + ${c(E.g_max, "pct", 2)}), supuesto del equipo.</p></div>
+        <div class="port-der">
+          <div class="port-bloque"><div class="port-n">01</div><div><h3>La empresa</h3>
+            <p>Vende concentrado y jarabes a embotelladores, que producen y distribuyen las bebidas. Reporta en dólares, pero el ${c(D.intl_pct_2025, "pct", 0)} de sus ingresos de 2025 vino de fuera de EUA (${c(D.intl_2025, "musd", 0)} de ${c(D.ingresos_2025, "musd", 0)}).</p></div></div>
+          <div class="port-bloque"><div class="port-n">02</div><div><h3>Su exposición al riesgo</h3>
+            <p>En Europa, sus embotelladores CCEP y Coca-Cola HBC le pagan en <b>euros</b>. Si el euro baja frente al dólar, esos mismos euros se convierten en menos dólares.</p></div></div>
+          <div class="port-bloque"><div class="port-n">03</div><div><h3>Qué presentamos</h3>
+            <ol class="port-lista"><li>Justificación de la cobertura</li><li>Diseño de la cobertura</li><li>Especulación con petróleo</li><li>Recomendación a la Mesa</li></ol></div></div>
+          <div class="port-bloque"><div class="port-n">04</div><div><h3>Con qué datos</h3>
+            <p>Reportes oficiales (10-K y 10-Q de KO, 20-F de CCEP, informe anual de CCHBC), precios de CME del 13-nov-2026 y 3 años de precios semanales.</p></div></div>
+        </div>
+      </div>`,
+  });
+
+  // 1 · Justificación de la cobertura
+  P.push({
+    t: "Justificación de la cobertura",
+    html: () => `
+      <h1>Justificación de la cobertura: ¿cuántos euros recibe KO y cuánto puede perder?</h1>
+      <div class="rejilla d3 igual">
+        <div class="tarjeta texto pasos3">
+          <div class="paso"><div class="paso-t">El riesgo</div>
+            <p>KO vende concentrado a sus embotelladores europeos, <b>CCEP</b> y <b>Coca-Cola HBC</b>, que le pagan en euros. KO reporta en dólares: si el euro baja, recibe menos. Su 10-K dice que cubre sobre todo el euro (${c(D.principally_euro, "txt")}).</p></div>
+          <div class="paso"><div class="paso-t">Cómo lo medimos</div>
+            <p>Sin proyecciones: usamos lo que esos embotelladores reportan que le compraron a KO en 2025 en la eurozona. El <b>mínimo</b> es la parte verificable; el base y el máximo dependen de supuestos.</p></div>
+          <div class="paso"><div class="paso-t">Cuánto puede costar</div>
+            <p>En el peor caso al 95 %, KO dejaría de recibir <b>${c(D.costo_riesgo, "musd")}</b> en el semestre: el <b>${c(D.materialidad, "pct", 2)}</b> de su utilidad de operación del primer semestre de 2026.</p></div>
+        </div>
+        <div class="tarjeta"><h3>EUR por recibir, ene–jun 2027 (millones)</h3>${amp("g1")}<div id="g1" class="graf"></div></div>
       </div>
-      <div class="kpis">
+      <div class="kpis k5">
         ${kpi("a", "Mínimo (verificable)", c(E.sem_minimo, "meur"), `CCEP eurozona ${c(E.ccep_eur, "meur")} + CCHBC Italia ${c(E.cchbc_min, "meur")}, ÷ 2`)}
-        ${kpi("", "Base", c(E.sem_base, "meur"), `CCEP + CCHBC con mezcla euro base (${c(E.cchbc_base, "meur")}), ÷ 2`)}
-        ${kpi("", "Máximo (supuesto)", c(E.sem_maximo, "meur"), "base × (1 + mayor crecimiento de EMEA)")}
-        ${kpi("r", "Costo en riesgo (P5, 95 %)", c(D.costo_riesgo, "musd"), `presupuesto al F₀: ${c(D.presupuesto, "musd")} (mín. ${c(D.presupuesto_min, "musd")} · máx. ${c(D.presupuesto_max, "musd")})`)}
-        ${kpi("r", "Materialidad", c(D.materialidad, "pct", 2), "de la utilidad de operación H1 2026")}
+        ${kpi("", "Base", c(E.sem_base, "meur"), `CCEP + CCHBC con mezcla euro (${c(E.cchbc_base, "meur")}), ÷ 2`)}
+        ${kpi("", "Máximo (supuesto)", c(E.sem_maximo, "meur"), `base × (1 + ${c(E.g_max, "pct", 2)}, mayor crecimiento de EMEA)`)}
+        ${kpi("r", "Costo en riesgo (P5, 95 %)", c(D.costo_riesgo, "musd"), `contra el presupuesto al F₀ de ${c(D.presupuesto, "musd")}`)}
+        ${kpi("r", "Materialidad", c(D.materialidad, "pct", 2), `÷ utilidad de operación H1 2026 (${c(D.util_h1, "musd", 0)})`)}
       </div>
-      <p class="nota">Fuentes primarias: CCEP 20-F FY2025 (Nota 20, p. 186; Nota 4, p. 151; p. 49), CCHBC Integrated Annual Report 2025 (Nota 27 a), p. 322; Nota 6 a), pp. 275–276), KO 10-Q Q2-2026 (p. 2). Cada cifra enlaza (↗) a su ubicación exacta; la cadena completa está en Anexo · Exposición.</p>`,
+      <p class="fuentes">Fuentes: 20-F CCEP 2025 · Informe anual CCHBC 2025 · 10-Q KO Q2-2026 · cadena completa en Anexo A1</p>`,
     g: () => {
       const x = ["Mínimo", "Base", "Máximo"], o = [E.sem_minimo, E.sem_base, E.sem_maximo];
       dibuja("g1", [{ type: "bar", x, y: o.map((v) => v.v / 1e6), marker: { color: [css("--a"), css("--sin"), css("--linea")] },
-        text: o.map((v) => nf(v.v / 1e6, 1)), textposition: "outside", cliponaxis: false,
+        text: o.map((v) => nf(v.v / 1e6, 1)), textposition: "outside", cliponaxis: false, textfont: { size: 15 },
         customdata: o.map((v) => v.f), hovertemplate: "%{x}: EUR %{y:,.1f} M<br>fuente: %{customdata}<extra></extra>" }],
-        { yaxis: { title: { text: "millones de EUR" }, gridcolor: css("--linea") }, showlegend: false });
+        { margin: { l: 50, r: 10, t: 24, b: 36 }, yaxis: { title: { text: "millones de EUR" }, gridcolor: css("--linea"), range: [0, E.sem_maximo.v / 1e6 * 1.18] },
+          xaxis: { tickfont: { size: 14 } }, showlegend: false });
     },
   });
 
-  // 2 · Cobertura sobre el euro
+  // 2 · Diseño de la cobertura
   P.push({
-    t: "Cobertura sobre el euro",
+    t: "Diseño de la cobertura",
     html: () => {
-      const filas = esc3.map((e) => `<tr><td class="txt">${esc(e.nombre)}</td><td>${c(e.sigma, "pct", 2)}</td>
+      const filas = esc3.map((e) => `<tr class="${e.nivel === "medio" ? "res" : ""}"><td class="txt">${esc(e.nombre)}</td><td>${c(e.sigma, "pct", 2)}</td>
         <td>${c(e.spot_ene, "n", 4)} → ${c(e.spot_jun, "n", 4)}</td><td>${c(e.sin_cobertura, "musd")}</td><td class="mejor">${c(e.con_futuros, "musd")}</td>
         <td>${c(e.con_puts_ATM, "musd")}</td><td>${c(e.con_puts_OTM, "musd")}</td>
         <td>${c(e.gp_futuros, "musd")} / ${c(e.gp_puts_ATM, "musd")} / ${c(e.gp_puts_OTM, "musd")}</td></tr>`).join("");
-      const riesgo = esc3.map((e) => `<tr><td class="txt">${esc(e.nombre)}</td><td>${c(e.sigma, "pct", 2)}</td><td>${c(e.costo_en_riesgo, "musd")}</td><td>${c(e.materialidad, "pct", 2)}</td></tr>`).join("");
+      const riesgo = esc3.map((e) => `<tr class="${e.nivel === "medio" ? "res" : ""}"><td class="txt">${esc(e.nombre)}</td><td>${c(e.sigma, "pct", 2)}</td><td>${c(e.costo_en_riesgo, "musd")}</td><td>${c(e.materialidad, "pct", 2)}</td></tr>`).join("");
       return `
-      <h1>Con un precio pactado, los futuros dan el ingreso más alto cuando el euro cae</h1>
-      <p class="mensaje">Cubrimos solo el escenario mínimo: ${c(A.N_mes, "n")} futuros 6E por mes (${c(A.N, "n")} en total, ${c(A.cob_base, "pct", 0)} de los EUR base), con razón de cobertura h = 1 porque es el mismo activo. Precio pactado: F₀ de marzo ${c(A.F0.ECH27, "n", 4)}, junio ${c(A.F0.ECM27, "n", 4)} y septiembre ${c(A.F0.ECU27, "n", 4)}.</p>
-      <div class="tarjeta"><h3>Tres escenarios con precio pactado único (spot al cierre = P5 adverso del euro), ingreso del semestre</h3>
+      <h1>Diseño de la cobertura: futuros (A) y puts (B) sobre el euro</h1>
+      <div class="ficha">
+        <div><div class="et">Qué cubrimos</div><div class="va">Escenario mínimo</div><div class="de">${c(E.sem_minimo, "meur")} · ${c(A.cob_base, "pct", 0)} del base</div></div>
+        <div><div class="et">Cuántos futuros 6E</div><div class="va">${c(A.N_mes, "n")} por mes</div><div class="de">${c(A.N, "n")} en total · EUR 125,000 c/u</div></div>
+        <div><div class="et">Razón de cobertura</div><div class="va">h = 1</div><div class="de">mismo activo: EUR/USD</div></div>
+        <div><div class="et">Dirección</div><div class="va">Venta (corto)</div><div class="de">KO fija hoy a cuánto vende sus euros</div></div>
+        <div><div class="et">Precio pactado (F₀)</div><div class="va f0"><span>${c(A.F0.ECH27, "n", 4)}</span><span>${c(A.F0.ECM27, "n", 4)}</span><span>${c(A.F0.ECU27, "n", 4)}</span></div><div class="de f0d"><span>mar</span><span>jun</span><span>sep 2027</span></div></div>
+      </div>
+      <div class="tarjeta"><h3>Tres escenarios con precio pactado único: el euro cierra en su peor caso (P5) · ingreso del semestre</h3>
         <div class="tabla-env"><table>
         <thead><tr><th>Escenario</th><th>σ</th><th>Spot al cierre (ene → jun)</th><th>Sin cobertura</th><th>Con futuros</th><th>Con puts ATM</th><th>Con puts OTM</th><th>Ganancia del derivado: fut. / ATM / OTM</th></tr></thead>
         <tbody>${filas}</tbody></table></div>
-        <div id="g2" class="graf"></div>
-        <p class="nota">Puts: prima ATM ${c(D.B_costo.ATM, "musd")} y OTM (1.050) ${c(D.B_costo.OTM, "musd")} en total, ya restadas. Futuros: sin prima; margen inicial ${c(A.margen, "musd")}.</p></div>
-      <div class="rejilla">
+        <p class="nota">Puts con prima ya restada: ATM ${c(D.B_costo.ATM, "musd")} y OTM (1.050) ${c(D.B_costo.OTM, "musd")}. Futuros: sin prima; margen inicial ${c(A.margen, "musd")}.</p></div>
+      <div class="rejilla r3">
+        <div class="tarjeta"><h3>Ingreso en el peor caso (millones de USD)</h3>${amp("g2")}<div id="g2" class="graf"></div></div>
         <div class="tarjeta"><h3>¿Qué tan riesgoso es el euro?</h3><div class="tabla-env"><table>
-          <thead><tr><th>Escenario</th><th>σ</th><th>Costo en riesgo</th><th>Materialidad</th></tr></thead><tbody>${riesgo}</tbody></table></div>
-          <p class="nota">Materialidad = costo en riesgo ÷ utilidad de operación H1 2026 (${c(D.util_h1, "musd", 0)}).</p></div>
-        <div class="tarjeta"><h3>Estrés histórico y volumen −30 %</h3><ul class="lista">
-          <li><b>Estrés 2022</b> (euro ${c(ES.eur, "pct", 2)} en 26 semanas, ${esc(ES.periodo_eur)}): sin cobertura ${c(ES.sin, "musd")}; con futuros ${c(ES.A, "musd")}; puts ATM ${c(ES.B_ATM, "musd")}; puts OTM ${c(ES.B_OTM, "musd")}.</li>
-          <li><b>Si llega 30 % menos volumen</b>, sobran ${c(V.sobre, "meur")} cubiertos (${c(V.sobre_pct, "pct", 1)} de los euros reales): esa parte de los futuros ya no tiene ingreso detrás. Con puts, la sobrecobertura solo cuesta la prima de más.</li>
-          <li>P5 con volumen −30 %: sin cobertura ${c(V.P5_sin, "musd")}; futuros ${c(V.P5_A, "musd")}; puts ATM ${c(V.P5_B_ATM, "musd")}.</li>
-        </ul></div>
+          <thead><tr><th>Escenario</th><th>σ</th><th>Costo en riesgo</th><th>Materialidad</th></tr></thead><tbody>${riesgo.replace(/Riesgo /g, "")}</tbody></table></div>
+          <p class="nota">Aun con la volatilidad más alta de 5 años, el riesgo es ≈ 2 % de la utilidad del semestre.</p></div>
+        <div class="tarjeta"><h3>Pruebas de estrés</h3>
+          <div class="estres-t"><b>Crisis 2022</b> (euro ${c(ES.eur, "pct", 2)} en 26 semanas):</div>
+          <table class="mini"><tbody>
+            <tr><td class="txt">Sin cubrir</td><td>${c(ES.sin, "musd")}</td><td class="txt">Futuros</td><td class="mejor">${c(ES.A, "musd")}</td></tr>
+            <tr><td class="txt">Puts ATM</td><td>${c(ES.B_ATM, "musd")}</td><td class="txt">Puts OTM</td><td>${c(ES.B_OTM, "musd")}</td></tr></tbody></table>
+          <div class="estres-t"><b>Volumen −30 %:</b> sobran ${c(V.sobre, "meur")} cubiertos (${c(V.sobre_pct, "pct", 1)} de lo que llega).</div>
+        </div>
       </div>`;
     },
     g: () => {
-      const x = esc3.map((e) => e.nombre);
+      const x = esc3.map((e) => e.nombre.replace("Riesgo ", ""));
       const tr = [["Sin cobertura", "sin_cobertura", "--sin"], ["Con futuros", "con_futuros", "--a"], ["Puts ATM", "con_puts_ATM", "--b"], ["Puts OTM", "con_puts_OTM", "--b2"]]
         .map(([n, k, col]) => ({ type: "bar", name: n, x, y: esc3.map((e) => e[k].v / 1e6), marker: { color: css(col) },
           customdata: esc3.map((e) => e[k].f), hovertemplate: n + ": USD %{y:,.1f} M<br>fuente: %{customdata}<extra></extra>" }));
       const ys = esc3.flatMap((e) => ["sin_cobertura", "con_futuros", "con_puts_ATM", "con_puts_OTM"].map((k) => e[k].v / 1e6));
-      dibuja("g2", tr, { barmode: "group", yaxis: { title: { text: "ingreso del semestre, millones de USD" }, range: [Math.min(...ys) * 0.97, Math.max(...ys) * 1.01], gridcolor: css("--linea") } });
+      dibuja("g2", tr, { barmode: "group", margin: { l: 46, r: 8, t: 8, b: 56 }, legend: { orientation: "h", x: 0, y: -0.16, yanchor: "top", font: { size: 11 } }, yaxis: { range: [Math.min(...ys) * 0.97, Math.max(...ys) * 1.01], gridcolor: css("--linea") } });
     },
   });
 
-  // 3 · Especulación con CL
+  // 3 · Especulación con petróleo
   P.push({
-    t: "Especulación con CL",
+    t: "Especulación con petróleo",
     html: () => {
-      const fil = D.activos.map((a) => `<tr><td class="txt">${esc(a.desc)} <span class="etiq ${a.ticker === "CL=F" ? "si" : ""}">${esc(a.ticker)}</span></td>
-        <td>${a.vol ? c(a.vol, "pct", 1) : "No encontrado"}</td><td>${a.volumen ? c(a.volumen, "n") : "—"}</td><td>${a.oi ? c(a.oi, "n") : "—"}</td></tr>`).join("");
-      const cand = D.C_cand.map((x) => `<tr><td class="txt">${esc(x.nombre)}</td><td>${c(x.n, "n")}</td><td>${c(x.prima, "musd", 2)}</td><td>${c(x.E_hist, "musd", 2)}</td><td>${c(x.E_impl, "musd", 2)}</td><td>${c(x.P, "pct", 1)}</td></tr>`).join("");
+      const cand = D.C_cand.map((x) => `<tr class="${/spread/i.test(x.nombre) ? "res" : ""}"><td class="txt">${esc(x.nombre)}</td><td>${c(x.n, "n")}</td><td>${c(x.E_hist, "musd", 2)}</td><td>${c(x.E_impl, "musd", 2)}</td><td>${c(x.P, "pct", 1)}</td></tr>`).join("");
       return `
-      <h1>Petróleo: el más volátil con liquidez profunda; bull call spread 84/97 con pérdida acotada</h1>
-      <p class="mensaje">La especulación (C) es independiente de la cobertura y se asigna a Strategic Growth, con presupuesto de primas de USD 10 M. Se eligió CL porque tiene la volatilidad más alta de los candidatos (${c(C.vol_hist, "pct", 1)}) con liquidez profunda: el mayor volumen de opciones (${c(D.opc_vol_cl, "n")} en DEC26) y casi 2 millones de contratos de interés abierto. Además se relaciona con PET y diésel del sistema Coca-Cola.</p>
-      <div class="rejilla">
-        <div class="tarjeta"><h3>Los 11 activos evaluados: volatilidad y liquidez (13-nov-2026)</h3><div id="g3a" class="graf"></div>
-          <div class="tabla-env solo-pantalla"><table class="chica"><thead><tr><th>Serie</th><th>Vol. anual</th><th>Volumen</th><th>Interés abierto</th></tr></thead><tbody>${fil}</tbody></table></div></div>
-        <div class="tarjeta"><h3>Pago al vencimiento (17-feb-2027), por barril</h3><div id="g3b" class="graf"></div>
-          <p class="nota">Compra call 84 @ ${c(C.p1, "n", 2)}, vende call 97 @ ${c(C.p2, "n", 2)}: prima neta ${c(C.prima_neta, "n", 2)} USD/bbl, que se dibuja aparte. ${c(C.n, "n")} spreads; pérdida máxima ${c(C.prima_total, "musd", 2)}; ganancia máxima ${c(C.gan_max, "musd", 2)}; equilibrio en ${c(C.equilibrio, "n", 2)}. F₀ = ${c(C.F0, "n", 2)}. Ejercicio ${c(C.americana, "txt")}.</p></div>
+      <h1>Especulación con petróleo (C): bull call spread 84/97, con pérdida acotada</h1>
+      <div class="ficha c">
+        <div><div class="et">Presupuesto y área</div><div class="va">USD 10 M</div><div class="de">Strategic Growth, aparte</div></div>
+        <div><div class="et">Activo</div><div class="va">Petróleo WTI (CL)</div><div class="de">el más volátil: ${c(C.vol_hist, "pct", 1)} anual</div></div>
+        <div><div class="et">Estrategia (LOH27)</div><div class="va">Compra 84 · vende 97</div><div class="de">calls de mar-2027, vencen 17-feb</div></div>
+        <div><div class="et">Tamaño</div><div class="va">${c(C.n, "n")} spreads</div><div class="de">prima neta ${c(C.prima_neta, "n", 2)} USD/bbl × 1,000 bbl</div></div>
+        <div><div class="et">Pérdida máx. · ganancia máx. (USD)</div><div class="va"><span class="malo">${c(C.prima_total, "musd", 1).replace("USD ", "")}</span> · <span class="bueno">${c(C.gan_max, "musd", 2).replace("USD ", "")}</span></div><div class="de">gana arriba de ${c(C.equilibrio, "n", 2)}</div></div>
       </div>
-      <div class="rejilla">
-        <div class="tarjeta"><h3>Resultado esperado (Montecarlo, 100,000 trayectorias)</h3><div class="tabla-env"><table>
-          <thead><tr><th>Estrategia</th><th>Contratos</th><th>Prima</th><th>E[resultado] σ hist.</th><th>E[resultado] σ impl.</th><th>P(ganar)</th></tr></thead><tbody>${cand}</tbody></table></div>
-          <p class="nota">El spread tiene el mejor resultado esperado con las dos volatilidades: vende la call de 97, la más cara de la sonrisa (implícita ATM ${c(C.iv_atm, "pct", 1)} contra histórica ${c(C.vol_hist, "pct", 1)}).</p></div>
-        <div class="tarjeta"><h3>Backtest (15-may a 13-nov-2026)</h3>
-          <p>La misma regla aplicada en mayo de 2026 (call ATM 105.5 / +15 % 121) habría perdido toda la prima: ${c(D.bt.C, "musd", 1)}. CL terminó en 97.97, debajo del strike comprado. Es el riesgo que se acepta: la pérdida nunca pasa del presupuesto.</p></div>
+      <div class="rejilla r2c">
+        <div class="tarjeta"><h3>Por qué petróleo: volatilidad contra liquidez de los 11 activos</h3>${amp("g3a")}<div id="g3a" class="graf"></div></div>
+        <div class="tarjeta"><h3>Pago al vencimiento, por barril</h3>${amp("g3b")}<div id="g3b" class="graf"></div></div>
+      </div>
+      <div class="rejilla r2d">
+        <div class="tarjeta"><h3>Por qué esta estrategia: resultado esperado (100,000 simulaciones)</h3><div class="tabla-env"><table>
+          <thead><tr><th>Estrategia</th><th>Contratos</th><th>E[resultado] σ hist.</th><th>E[resultado] σ impl.</th><th>P(ganar)</th></tr></thead><tbody>${cand}</tbody></table></div></div>
+        <div class="tarjeta"><h3>Backtest (mayo a noviembre 2026)</h3>
+          <p class="estres-t"><span class="va malo grande">${c(D.bt.C, "musd", 1)}</span> con la misma regla: el petróleo bajó de 105.42 a 97.97, debajo del strike comprado, y se perdió toda la prima. Es el riesgo aceptado: nunca pasa del presupuesto.</p></div>
       </div>`;
     },
     g: () => {
       const fut = D.activos.filter((a) => a.vol && a.oi);
       dibuja("g3a", [{ type: "scatter", mode: "markers+text", x: fut.map((a) => a.oi.v), y: fut.map((a) => a.vol.v * 100), text: fut.map((a) => a.ticker.replace("=F", "")),
-        textposition: "top center", marker: { size: 11, color: fut.map((a) => (a.ticker === "CL=F" ? css("--c") : css("--sin"))) },
+        textposition: "top center", marker: { size: 12, color: fut.map((a) => (a.ticker === "CL=F" ? css("--c") : css("--sin"))) },
         customdata: fut.map((a) => [a.vol.f, a.oi.f]), hovertemplate: "%{text}<br>Vol. %{y:.1f}%<br>IA %{x:,}<br>%{customdata[0]}<extra></extra>" }],
-        { xaxis: { type: "log", title: { text: "interés abierto (escala log)" }, gridcolor: css("--linea") }, yaxis: { title: { text: "volatilidad anual (%)" }, gridcolor: css("--linea") }, showlegend: false });
+        { margin: { l: 50, r: 10, t: 18, b: 40 }, yaxis: { title: { text: "volatilidad anual (%)" }, gridcolor: css("--linea"), range: [0, 50] }, xaxis: { type: "log", title: { text: "interés abierto (escala log)" }, gridcolor: css("--linea") }, showlegend: false });
       const K1 = C.K1.v, K2 = C.K2.v, pr = C.prima_neta.v, xs = [];
       for (let s = 60; s <= 115; s += 0.5) xs.push(s);
       const bruto = xs.map((s) => Math.max(s - K1, 0) - Math.max(s - K2, 0));
@@ -163,7 +205,7 @@
         { type: "scatter", name: "Pago bruto", x: xs, y: bruto, line: { color: css("--a") } },
         { type: "scatter", name: "Prima neta (costo)", x: xs, y: xs.map(() => -pr), line: { color: css("--acento"), dash: "dash" } },
         { type: "scatter", name: "Resultado neto", x: xs, y: bruto.map((b) => b - pr), line: { color: css("--c"), width: 3 } },
-      ], { xaxis: { title: { text: "CL al vencimiento (USD/bbl)" }, gridcolor: css("--linea") }, yaxis: { title: { text: "USD por barril" }, gridcolor: css("--linea") } });
+      ], { margin: { l: 50, r: 10, t: 30, b: 40 }, xaxis: { title: { text: "CL al vencimiento (USD/bbl)" }, gridcolor: css("--linea") }, yaxis: { title: { text: "USD por barril" }, gridcolor: css("--linea") } });
     },
   });
 
@@ -171,31 +213,29 @@
   P.push({
     t: "Recomendación",
     html: () => `
-      <h1>La cobertura no es indispensable; si la Mesa quiere certeza, futuros sobre la parte verificable</h1>
-      <p class="mensaje">El riesgo cambiario del semestre es pequeño frente a la utilidad de operación (materialidad ≈ ${c(D.materialidad, "pct", 2)}), por lo que la cobertura no es indispensable. Si la Mesa prioriza certeza del presupuesto, recomendamos futuros 6E en corto sobre la parte verificable (escenario mínimo), ejecutados con stack and roll. Las puts OTM son la alternativa barata si se quiere conservar la ganancia cuando el euro sube. C es independiente, para Strategic Growth.</p>
-      <div class="rejilla">
-        <div class="tarjeta"><h3>Costo y protección</h3><ul class="lista">
-          <li><b>Futuros:</b> sin prima. Margen inicial ${c(A.margen, "musd")}; liquidez para pérdidas en el peor caso al 95 % ${c(L.mc_medio, "musd")} (σ media).</li>
-          <li><b>Puts OTM:</b> ${c(D.B_costo.OTM, "musd")} de prima; <b>ATM:</b> ${c(D.B_costo.ATM, "musd")}. Conservan la subida del euro y no piden margen.</li>
-          <li><b>Protección (riesgo medio, euro al P5):</b> sin cobertura ${c(medio.sin_cobertura, "musd")}; con futuros ${c(medio.con_futuros, "musd")}; con puts OTM ${c(medio.con_puts_OTM, "musd")}.</li>
-          <li><b>A lo que se renuncia:</b> con futuros, a la ganancia si el euro sube, sobre los euros cubiertos. El resultado del stack and roll no se suma como ganancia: ya está en los precios pactados.</li>
-        </ul></div>
+      <h1>Recomendación a la Mesa: qué hacer, cuánto cuesta y qué nos haría cambiar</h1>
+      <div class="recomendacion">El riesgo cambiario del semestre es pequeño frente a la utilidad de operación (materialidad ≈ ${c(D.materialidad, "pct", 2)}), por lo que la cobertura no es indispensable. <b>Si la Mesa prioriza certeza del presupuesto, recomendamos futuros 6E en corto sobre la parte verificable (escenario mínimo), ejecutados con stack and roll.</b> Las puts OTM son la alternativa barata si se quiere conservar la ganancia cuando el euro sube. La especulación con petróleo es independiente, para Strategic Growth.</div>
+      <div class="ficha">
+        <div><div class="et">Costo de los futuros</div><div class="va">Sin prima</div><div class="de">margen ${c(A.margen, "musd")} · liquidez al 95 % ${c(L.mc_medio, "musd")}</div></div>
+        <div><div class="et">Costo de las puts</div><div class="va">OTM ${c(D.B_costo.OTM, "musd")}</div><div class="de">ATM ${c(D.B_costo.ATM, "musd")} · sin margen</div></div>
+        <div><div class="et">Protección (peor caso, σ media)</div><div class="va">${c(medio.con_futuros, "musd")}</div><div class="de">con futuros, contra ${c(medio.sin_cobertura, "musd")} sin cubrir</div></div>
+        <div><div class="et">A lo que se renuncia</div><div class="va">Subida del euro</div><div class="de">con futuros, sobre los euros cubiertos</div></div>
+      </div>
+      <div class="rejilla r3i">
         <div class="tarjeta"><h3>Riesgos que permanecen</h3><ul class="lista">
-          <li><b>Volumen:</b> si llegan 30 % menos euros, ${c(V.sobre, "meur")} de futuros quedan sin ingreso detrás (${c(V.sobre_pct, "pct", 1)} de los euros reales).</li>
-          <li><b>Liquidez:</b> con σ alta, el P95 de margen más pérdidas llega a ${c(L.mc_alto, "musd")}; si el bróker cobra 110 %, el margen sube a ${c(L.margen_110, "musd")}.</li>
-          <li><b>Base por fecha y horario:</b> los flujos llegan antes del vencimiento de los contratos; el spot se fija a otra hora que la liquidación de CME.</li>
-          <li><b>Simulador de CME:</b> no lista marzo 2027 para el euro (se ejecutó en diciembre 2026, ${c(D.sim.A_px, "n", 4)}), cobra margen de especulador (${c(D.sim.margen_A, "usd")} por contrato) y cobra margen por la call vendida de C.</li>
+          <li><b>Volumen:</b> si llegan 30 % menos euros, ${c(V.sobre, "meur")} quedan cubiertos de más.</li>
+          <li><b>Liquidez:</b> con σ alta, margen y pérdidas llegan a ${c(L.mc_alto, "musd")}.</li>
+          <li><b>Base:</b> los euros llegan a fin de mes y los futuros vencen después; el spot se fija a otra hora.</li>
         </ul></div>
         <div class="tarjeta"><h3>Condiciones para cambiar</h3><ul class="lista">
-          <li>Si el pronóstico de euros cae debajo de lo cubierto (mínimo) → reducir futuros o pasar a puts.</li>
-          <li>Si KO no puede comprometer la liquidez del P95 → usar puts OTM.</li>
-          <li>Si la materialidad sube (σ alta: ${c(alto.materialidad, "pct", 2)}) o la Mesa prioriza certeza → ampliar la cobertura.</li>
-          <li>Si la prima de las puts supera el límite que fije la Mesa → quedarse con futuros o sin cobertura.</li>
+          <li>Baja el pronóstico de euros → reducir futuros o pasar a puts.</li>
+          <li>KO no puede comprometer la liquidez → puts OTM.</li>
+          <li>Sube la volatilidad (materialidad ${c(alto.materialidad, "pct", 2)}) o la Mesa quiere certeza total → ampliar la cobertura.</li>
         </ul></div>
         <div class="tarjeta"><h3>Implementación</h3><ul class="lista">
-          <li><b>Quién:</b> Tesorería de KO, con un bróker de CME en perfil de coberturista.</li>
-          <li><b>Cuándo:</b> vender ${c(A.N, "n")} DEC 26 (IA ${c(A.dec26_ia, "n")}) y rolar en cada vencimiento; cerrar cada mes en su flujo, ene–jun 2027.</li>
-          <li><b>Qué se monitorea:</b> margen y pérdidas acumuladas contra la línea de liquidez, el pronóstico de euros contra lo cubierto y la base S − F.</li>
+          <li><b>Quién:</b> Tesorería de KO, con un bróker de CME como coberturista.</li>
+          <li><b>Cómo:</b> vender ${c(A.N, "n")} futuros de diciembre 2026 (IA ${c(A.dec26_ia, "n")}) y rolarlos en cada vencimiento.</li>
+          <li><b>Qué se vigila:</b> pérdidas contra la línea de liquidez y euros esperados contra lo cubierto.</li>
         </ul></div>
       </div>`,
   });
@@ -277,15 +317,25 @@
         <li><b>Saldo final:</b> fondos ${c(D.sim.fondos, "usd", 2)}; margen ${c(D.sim.margen_final, "usd", 2)}. Primer intento (17-nov, escala 1:1,000) cerrado con Flatten.</li></ul></div>`,
   });
 
+  P.push({
+    t: "Anexo · Activos (C)", anexo: true,
+    html: () => `
+      <h1>Los 11 activos evaluados para la especulación: volatilidad y liquidez (13-nov-2026)</h1>
+      <div class="tarjeta"><div class="tabla-env"><table><thead><tr><th>Serie</th><th>Vol. anual</th><th>Volumen</th><th>Interés abierto</th></tr></thead><tbody>${D.activos.map((a) => `<tr><td class="txt">${esc(a.desc)} <span class="etiq ${a.ticker === "CL=F" ? "si" : ""}">${esc(a.ticker)}</span></td>
+        <td>${a.vol ? c(a.vol, "pct", 1) : "No encontrado"}</td><td>${a.volumen ? c(a.volumen, "n") : "—"}</td><td>${a.oi ? c(a.oi, "n") : "—"}</td></tr>`).join("")}</tbody></table></div>
+        <p class="nota">CL: mayor volatilidad con liquidez profunda y el mayor volumen de opciones (${c(D.opc_vol_cl, "n")} en DEC26). HO es casi igual de volátil, pero sus opciones casi no se negocian. Compra call 84 @ ${c(C.p1, "n", 2)}, vende call 97 @ ${c(C.p2, "n", 2)}; F₀ = ${c(C.F0, "n", 2)}; ejercicio ${c(C.americana, "txt")}; implícita ATM ${c(C.iv_atm, "pct", 1)}.</p></div>`,
+  });
+
   // ------------------------------------------------------------ armado y navegación
   const main = document.getElementById("pantallas");
-  const principales = P.filter((p) => !p.anexo).length;
-  const etiqueta = (i) => (P[i].anexo ? "A" + (i - principales + 1) : String(i + 1));
-  main.innerHTML = P.map((p, i) => `<section class="pantalla${p.anexo ? " anexo" : ""}" id="p${i + 1}" data-i="${i}"><div class="num">${p.anexo ? "Anexo " + etiqueta(i) : i + 1 + " / " + principales} · ${esc(p.t.replace("Anexo · ", ""))}</div>${p.html()}
-    <div class="pie-imp">${esc(D.meta.empresa)} · Proyecto Final Derivados · ${esc(D.meta.equipo)} · Corte ${esc(D.meta.corte)} · ${p.anexo ? "Anexo " + etiqueta(i) : "Pantalla " + (i + 1) + " de " + principales}</div></section>`).join("");
+  // índice 0 = portada; 1..principales = pantallas; después, el anexo
+  const principales = P.filter((p) => !p.anexo && !p.portada).length;
+  const etiqueta = (i) => (P[i].portada ? "0" : P[i].anexo ? "A" + (i - principales) : String(i));
+  main.innerHTML = P.map((p, i) => `<section class="pantalla${p.anexo ? " anexo" : ""}${p.portada ? " es-portada" : ""}" id="p${i}" data-i="${i}">${p.portada ? "" : `<div class="num">${p.anexo ? "Anexo " + etiqueta(i) : i + " / " + principales} · ${esc(p.t.replace("Anexo · ", ""))}</div>`}${p.html()}
+    ${p.portada ? "" : `<div class="pie-imp">${esc(D.meta.empresa)} · Proyecto Final Derivados · ${esc(D.meta.equipo)} · Corte ${esc(D.meta.corte)} · ${p.anexo ? "Anexo " + etiqueta(i) : "Pantalla " + i + " de " + principales}</div>`}</section>`).join("");
   document.getElementById("meta").textContent = `${D.meta.empresa} · corte ${D.meta.corte} · ${D.meta.equipo}`;
   const puntos = document.getElementById("puntos");
-  puntos.innerHTML = P.map((p, i) => (p.anexo ? "" : `<button data-i="${i}" title="${esc(p.t)}" aria-label="Pantalla ${i + 1}: ${esc(p.t)}">${i + 1}</button>`)).join("") +
+  puntos.innerHTML = P.map((p, i) => (p.anexo ? "" : `<button data-i="${i}" title="${esc(p.t)}" aria-label="${p.portada ? "Portada" : "Pantalla " + i + ": " + esc(p.t)}">${p.portada ? "⌂" : i}</button>`)).join("") +
     `<select id="anexo" aria-label="Anexo"><option value="">Anexo ▾</option>${P.map((p, i) => (p.anexo ? `<option value="${i}">${etiqueta(i)} · ${esc(p.t.replace("Anexo · ", ""))}</option>` : "")).join("")}</select>`;
   const selA = document.getElementById("anexo");
   selA.onchange = () => { if (selA.value !== "") ir(+selA.value, "usuario"); };
@@ -296,6 +346,7 @@
     i = Math.max(0, Math.min(P.length - 1, i));
     if (origen === "usuario" && !PRESENTADOR && CON_SYNC && ultimoPresentador !== null && i !== ultimoPresentador) { siguiendo = false; estado(); }
     if (i === actual) return;
+    cierraFull();
     actual = i;
     document.querySelectorAll(".pantalla").forEach((s, k) => s.classList.toggle("activa", k === i));
     puntos.querySelectorAll("button").forEach((b) => b.classList.toggle("on", +b.dataset.i === i));
@@ -306,7 +357,7 @@
     if (P[i].g) {
       requestAnimationFrame(() => {
         if (!dibujadas.has(i)) { P[i].g(); dibujadas.add(i); }
-        else document.querySelectorAll(`#p${i + 1} .graf`).forEach((g) => window.Plotly && Plotly.Plots.resize(g));
+        else document.querySelectorAll(`#p${i} .graf`).forEach((g) => window.Plotly && Plotly.Plots.resize(g));
       });
     }
     window.scrollTo(0, 0);
@@ -329,6 +380,23 @@
     const dx = e.changedTouches[0].clientX - x0; x0 = null;
     if (Math.abs(dx) > 60) ir(actual + (dx < 0 ? 1 : -1), "usuario");
   }, { passive: true });
+
+  // ------------------------------------------------------------ gráfica en pantalla completa
+  function cierraFull() {
+    const f = document.querySelector(".tarjeta.full");
+    if (!f) return;
+    f.classList.remove("full"); document.body.classList.remove("con-full");
+    f.querySelectorAll(".graf").forEach((g) => window.Plotly && Plotly.Plots.resize(g));
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".ampliar");
+    if (!b) return;
+    const t = b.closest(".tarjeta");
+    if (t.classList.contains("full")) { cierraFull(); return; }
+    cierraFull(); t.classList.add("full"); document.body.classList.add("con-full");
+    requestAnimationFrame(() => t.querySelectorAll(".graf").forEach((g) => window.Plotly && Plotly.Plots.resize(g)));
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") cierraFull(); }, true);
 
   // ------------------------------------------------------------ tooltip de fuente
   const tip = document.getElementById("tip");
@@ -385,6 +453,7 @@
   }
 
   // ------------------------------------------------------------ inicio
+  if (PRESENTADOR) document.body.classList.add("proyeccion");
   if (IMPRIMIR) {
     document.body.classList.add("imprimir");
     document.documentElement.setAttribute("data-theme", "light");
@@ -392,8 +461,8 @@
     P.forEach((p) => p.g && p.g());
     window.LISTO = true;
   } else {
-    const h = (location.hash || "#1").slice(1);
-    const idx = h.startsWith("A") ? principales + parseInt(h.slice(1), 10) - 1 : parseInt(h, 10) - 1;
+    const h = (location.hash || "#0").slice(1);
+    const idx = h.startsWith("A") ? principales + parseInt(h.slice(1), 10) : parseInt(h, 10);
     ir(isNaN(idx) ? 0 : idx, "inicio");
     if (CON_SYNC) { estado(); if (PRESENTADOR) publica(actual); else suscribe(); }
   }

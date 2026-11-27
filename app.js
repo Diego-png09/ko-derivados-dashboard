@@ -113,7 +113,7 @@
       <p class="fuentes">Fuentes: 20-F CCEP 2025 · Informe anual CCHBC 2025 · 10-Q KO Q2-2026 · cadena completa en Anexo A1</p>`,
     g: () => {
       const x = ["Mínimo", "Base", "Máximo"], o = [E.sem_minimo, E.sem_base, E.sem_maximo];
-      dibuja("g1", [{ type: "bar", x, y: o.map((v) => v.v / 1e6), marker: { color: [css("--a"), css("--sin"), css("--linea")] },
+      dibuja("g1", [{ type: "bar", x, y: o.map((v) => v.v / 1e6), marker: { color: [css("--a"), css("--b2"), css("--sin")] },
         text: o.map((v) => nf(v.v / 1e6, 1)), textposition: "outside", cliponaxis: false, textfont: { size: 15 },
         customdata: o.map((v) => v.f), hovertemplate: "%{x}: EUR %{y:,.1f} M<br>fuente: %{customdata}<extra></extra>" }],
         { margin: { l: 50, r: 10, t: 24, b: 36 }, yaxis: { title: { text: "millones de EUR" }, gridcolor: css("--linea"), range: [0, E.sem_maximo.v / 1e6 * 1.18] },
@@ -196,16 +196,16 @@
     g: () => {
       const fut = D.activos.filter((a) => a.vol && a.oi);
       dibuja("g3a", [{ type: "scatter", mode: "markers+text", x: fut.map((a) => a.oi.v), y: fut.map((a) => a.vol.v * 100), text: fut.map((a) => a.ticker.replace("=F", "")),
-        textposition: "top center", marker: { size: 12, color: fut.map((a) => (a.ticker === "CL=F" ? css("--c") : css("--sin"))) },
+        textposition: "top center", marker: { size: 12, color: fut.map((a) => (a.ticker === "CL=F" ? css("--a") : css("--sin"))) },
         customdata: fut.map((a) => [a.vol.f, a.oi.f]), hovertemplate: "%{text}<br>Vol. %{y:.1f}%<br>IA %{x:,}<br>%{customdata[0]}<extra></extra>" }],
         { margin: { l: 50, r: 10, t: 18, b: 40 }, yaxis: { title: { text: "volatilidad anual (%)" }, gridcolor: css("--linea"), range: [0, 50] }, xaxis: { type: "log", title: { text: "interés abierto (escala log)" }, gridcolor: css("--linea") }, showlegend: false });
       const K1 = C.K1.v, K2 = C.K2.v, pr = C.prima_neta.v, xs = [];
       for (let s = 60; s <= 115; s += 0.5) xs.push(s);
       const bruto = xs.map((s) => Math.max(s - K1, 0) - Math.max(s - K2, 0));
       dibuja("g3b", [
-        { type: "scatter", name: "Pago bruto", x: xs, y: bruto, line: { color: css("--a") } },
-        { type: "scatter", name: "Prima neta (costo)", x: xs, y: xs.map(() => -pr), line: { color: css("--acento"), dash: "dash" } },
-        { type: "scatter", name: "Resultado neto", x: xs, y: bruto.map((b) => b - pr), line: { color: css("--c"), width: 3 } },
+        { type: "scatter", name: "Pago bruto", x: xs, y: bruto, line: { color: css("--b2") } },
+        { type: "scatter", name: "Prima neta (costo)", x: xs, y: xs.map(() => -pr), line: { color: css("--b"), dash: "dash" } },
+        { type: "scatter", name: "Resultado neto", x: xs, y: bruto.map((b) => b - pr), line: { color: css("--a"), width: 3 } },
       ], { margin: { l: 50, r: 10, t: 30, b: 40 }, xaxis: { title: { text: "CL al vencimiento (USD/bbl)" }, gridcolor: css("--linea") }, yaxis: { title: { text: "USD por barril" }, gridcolor: css("--linea") } });
     },
   });

@@ -407,3 +407,43 @@ ol.instr .ic u { text-decoration-style: dotted; font-size: 14px; }
 .ie-espera .pt { width: 10px; height: 10px; border-radius: 50%; background: #fff; animation: late 1.2s ease-in-out infinite; }
 @keyframes late { 50% { opacity: .25; } }
 @media (max-height: 800px) { ol.instr { gap: 6px; } ol.instr .ic { width: 34px; height: 34px; font-size: 16px; } ol.instr li { grid-template-columns: 34px minmax(0, 1fr); } }
+
+/* ---------- Paso 11g (26-nov-2026): tema KO (rojo Coca-Cola, negro, blanco y grises), siempre claro */
+:root, :root[data-theme="light"] {
+  --ko: #e41e2b; --ko-osc: #b0141f;
+  --fondo: #f6f6f6; --papel: #ffffff; --tinta: #1a1a1a; --suave: #5f5f5f; --linea: #e4e4e4;
+  --acento: #e41e2b; --a: #e41e2b; --b: #1a1a1a; --b2: #8a8a8a; --sin: #c9c9c9; --c: #e41e2b;
+  --ok: #1f7a4d; --malo: #c8102e;
+  --sombra: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.06);
+}
+body { background: var(--fondo); }
+.barra { background: linear-gradient(90deg, var(--ko) 0%, var(--ko-osc) 100%); border-bottom: 0; color: #fff; }
+.marca-t { color: #fff; letter-spacing: .3px; }
+.marca-s { color: rgba(255,255,255,.85); }
+.estado { background: rgba(255,255,255,.95); color: var(--tinta); border-color: transparent; }
+.num { color: var(--ko); }
+h1 { color: var(--tinta); }
+h3 { color: var(--suave); }
+.tarjeta, .kpi, .ficha > div, .recomendacion { border: 1px solid var(--linea); }
+.kpi.a, .ficha > div, .ficha.c > div { border-top: 4px solid var(--ko); }
+.kpi { border-top: 4px solid var(--b2); }
+.kpi.r { border-top-color: var(--tinta); }
+.kpi.r .va { color: var(--ko); }
+td.mejor { color: var(--ko); font-weight: 700; }
+tr.res td { background: color-mix(in srgb, var(--ko) 7%, transparent); }
+.paso { border-left-color: var(--ko); }
+.paso-t, .port-n { color: var(--ko); }
+.cifra { border-bottom-color: color-mix(in srgb, var(--ko) 55%, transparent); }
+a.lk { color: var(--ko); }
+.nav { background: rgba(255,255,255,.96); border-top: 1px solid var(--linea); }
+.nav button { background: #fff; color: var(--tinta); border-color: var(--linea); }
+.puntos button.on { background: var(--ko); border-color: var(--ko); color: #fff; }
+#anexo { background: #fff; color: var(--tinta); }
+.ampliar { background: #fff; }
+.port-der { background: #fff; }
+.portada { border: 1px solid var(--linea); }
+.recomendacion { border-left: 6px solid var(--ko); }
+table.mini td.txt { color: var(--suave); }
+#tip { background: #1a1a1a; }
+.resultados div { background: #f6f6f6; }
+.port-izq h1.port-tit, #bienvenida h1, #instr-esp h1 { color: #fff; }

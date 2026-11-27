@@ -447,3 +447,20 @@ table.mini td.txt { color: var(--suave); }
 #tip { background: #1a1a1a; }
 .resultados div { background: #f6f6f6; }
 .port-izq h1.port-tit, #bienvenida h1, #instr-esp h1 { color: #fff; }
+
+/* ---------- Paso 11h (26-nov-2026): marco y fondo con tema KO */
+body {
+  background-color: #f4f4f4;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 900' preserveAspectRatio='none'%3E%3Cpath d='M0,690 C320,600 560,820 900,720 C1150,646 1300,640 1440,600 L1440,900 L0,900 Z' fill='%23e41e2b' fill-opacity='0.09'/%3E%3Cpath d='M0,780 C360,700 640,880 980,800 C1200,748 1330,742 1440,720 L1440,900 L0,900 Z' fill='%23e41e2b' fill-opacity='0.12'/%3E%3Cpath d='M0,120 C260,200 520,40 860,110 C1100,160 1300,90 1440,60 L1440,0 L0,0 Z' fill='%23e41e2b' fill-opacity='0.05'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+/* marco rojo alrededor de la ventana (no tapa clics) */
+body::after { content: ""; position: fixed; inset: 0; border: 6px solid var(--ko); pointer-events: none; z-index: 45; }
+body.con-full::after { z-index: 41; }
+.barra { margin: 0; }
+@media (max-width: 760px) { body::after { border-width: 4px; } }
+body.imprimir { background-image: none; }
+body.imprimir::after { display: none; }
